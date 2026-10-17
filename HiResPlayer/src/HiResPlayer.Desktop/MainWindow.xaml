@@ -10,7 +10,8 @@
         WindowStartupLocation="Manual"
         WindowStyle="None"
         FontFamily="Segoe UI Variable Text, Segoe UI, sans-serif"
-        AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver">
+        AllowDrop="True" Drop="Window_Drop" DragOver="Window_DragOver"
+        SizeChanged="MainWindow_SizeChanged">
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0"
                       ResizeBorderThickness="6"
@@ -143,11 +144,12 @@
             <!-- ── COLUMN 0: OBSIDIAN STUDIO SIDEBAR (232px, collapsible to 68px) ── -->
             <Border Grid.Column="0" Background="{StaticResource Studio.Surface}"
                     BorderBrush="{StaticResource Studio.Divider}" BorderThickness="0,0,1,0">
-                <DockPanel Margin="12,16">
+                <DockPanel x:Name="PnlSidebarContent" Margin="10,14">
                     <!-- Brand Title & Sidebar Collapse Toggle -->
                     <DockPanel DockPanel.Dock="Top" Margin="4,0,4,20" LastChildFill="True">
                         <Button x:Name="BtnToggleSidebar" DockPanel.Dock="Right" Content="☰"
-                                ToolTip="Collapse / Expand Sidebar" Style="{StaticResource Studio.IconButton}"
+                                ToolTip="Collapse / Expand Sidebar" AutomationProperties.Name="Toggle Sidebar Navigation"
+                                Style="{StaticResource Studio.IconButton}"
                                 Width="32" Height="32" Click="BtnToggleSidebar_Click"
                                 Foreground="{StaticResource Studio.TextMuted}"/>
                         <StackPanel x:Name="PnlBrandText" VerticalAlignment="Center">
@@ -165,7 +167,7 @@
 
                     <!-- Bottom: Settings -->
                     <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
-                        <Button x:Name="NavSettings" Style="{StaticResource NavButtonStyle}"
+                        <Button x:Name="NavSettings" Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Settings"
                                 Click="NavSettings_Click" ToolTip="Settings &amp; Engine Configuration">
                             <DockPanel>
                                 <TextBlock Text="⚙" FontSize="15" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
@@ -177,21 +179,21 @@
                     <!-- Navigation Items List -->
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
-                            <Button x:Name="NavSongs" Style="{StaticResource NavActiveButtonStyle}"
+                            <Button x:Name="NavSongs" Style="{StaticResource NavActiveButtonStyle}" AutomationProperties.Name="Songs Library"
                                     Click="NavSongs_Click" ToolTip="Songs (Full Library)" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="◉" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.Gold}"/>
                                     <TextBlock x:Name="TxtNavSongs" Text="Songs" FontSize="13" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Button>
-                            <Button x:Name="NavAlbums" Style="{StaticResource NavButtonStyle}"
+                            <Button x:Name="NavAlbums" Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Albums"
                                     Click="NavAlbums_Click" ToolTip="Albums" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="▤" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
                                     <TextBlock x:Name="TxtNavAlbums" Text="Albums" FontSize="13" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Button>
-                            <Button x:Name="NavArtists" Style="{StaticResource NavButtonStyle}"
+                            <Button x:Name="NavArtists" Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Artists"
                                     Click="NavArtists_Click" ToolTip="Artists" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="♫" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
@@ -199,20 +201,20 @@
                                 </DockPanel>
                             </Button>
                             <Button x:Name="NavFolders" Style="{StaticResource NavButtonStyle}"
-                                    Click="NavFolders_Click" ToolTip="Folders (Scan Folder)" Margin="0,2">
+                                    Click="NavFolders_Click" ToolTip="Folders (Browse by Folder)" AutomationProperties.Name="Folders" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="▣" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
                                     <TextBlock x:Name="TxtNavFolders" Text="Folders" FontSize="13" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Button>
-                            <Button x:Name="NavFavorites" Style="{StaticResource NavButtonStyle}"
+                            <Button x:Name="NavFavorites" Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Favorites"
                                     Click="NavFavorites_Click" ToolTip="Favorites Playlist" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="♡" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
                                     <TextBlock x:Name="TxtNavFavorites" Text="Favorites" FontSize="13" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Button>
-                            <Button x:Name="NavPlaylists" Style="{StaticResource NavButtonStyle}"
+                            <Button x:Name="NavPlaylists" Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Playlists"
                                     Click="NavPlaylists_Click" ToolTip="Playlists" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="≡" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
@@ -230,21 +232,21 @@
                                        FontSize="10" FontWeight="Bold" Foreground="{StaticResource Studio.Blue}"
                                        Margin="12,0,0,10"/>
 
-                            <Button x:Name="NavNowPlaying" Style="{StaticResource NavButtonStyle}"
+                            <Button x:Name="NavNowPlaying" Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Now Playing Stage"
                                     Click="NavNowPlaying_Click" ToolTip="Now Playing (Studio Master Stage)" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="◎" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
                                     <TextBlock x:Name="TxtNavNowPlaying" Text="Now Playing" FontSize="13" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Button>
-                            <Button x:Name="NavEqualizer" Style="{StaticResource NavButtonStyle}"
+                            <Button x:Name="NavEqualizer" Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Equalizer"
                                     Click="NavEqualizer_Click" ToolTip="10-Band &amp; Parametric Equalizer" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="🎚" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
                                     <TextBlock x:Name="TxtNavEqualizer" Text="Equalizer" FontSize="13" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Button>
-                            <Button x:Name="NavVocalStudio" Style="{StaticResource NavButtonStyle}"
+                            <Button x:Name="NavVocalStudio" Style="{StaticResource NavButtonStyle}" AutomationProperties.Name="Focus Studio"
                                     Click="NavVocalStudio_Click" ToolTip="Focus Studio &amp; Correlation Analysis" Margin="0,2">
                                 <DockPanel>
                                     <TextBlock Text="🎙" FontSize="14" Width="26" VerticalAlignment="Center" Foreground="{StaticResource Studio.TextSecondary}"/>
@@ -275,16 +277,16 @@
             <Grid Grid.Column="1">
 
                 <!-- ══════════════════════════ VIEW 1: LIBRARY & SEARCH ══════════════════════════ -->
-                <Grid x:Name="ViewLibrary" Visibility="Visible" Margin="24,20,24,14">
+                <Grid x:Name="ViewLibrary" Visibility="Visible" Margin="24,20,24,14" Grid.IsSharedSizeScope="True">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/> <!-- Row 0: Page Title & Search Bar -->
-                        <RowDefinition Height="Auto"/> <!-- Row 1: Filter Pills -->
+                        <RowDefinition Height="Auto"/> <!-- Row 0: Page Title & Search Bar & Library Actions -->
+                        <RowDefinition Height="Auto"/> <!-- Row 1: Filter Pills & Playback Actions -->
                         <RowDefinition Height="Auto"/> <!-- Row 2: Aligned Column Headers -->
                         <RowDefinition Height="*"/>    <!-- Row 3: Track List -->
                         <RowDefinition Height="Auto"/> <!-- Row 4: Dropdown Filters & Scan Status -->
                     </Grid.RowDefinitions>
 
-                    <!-- Row 0: Page Title & Search Bar (Separated, Never Collides) -->
+                    <!-- Row 0: Page Title & Search Bar & Directory Indexing Actions -->
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -320,37 +322,39 @@
                             </DockPanel>
                         </Grid>
 
-                        <!-- Search Box Only on Row 0 -->
+                        <!-- Search & Directory Management -->
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
-                            <TextBox x:Name="TxtSearch" Width="240" Height="38" VerticalContentAlignment="Center"
+                            <TextBox x:Name="TxtSearch" Width="200" Height="34" VerticalContentAlignment="Center"
                                      Style="{StaticResource Studio.TextBox}"
                                      Text="Search tracks, albums, artists..."
                                      GotFocus="TxtSearch_GotFocus" LostFocus="TxtSearch_LostFocus"
                                      TextChanged="TxtSearch_TextChanged"
                                      ToolTip="Search your music library"/>
+                            <Button x:Name="BtnScanFolder" Content="➕ Add Folder" Click="BtnScanFolder_Click"
+                                    Style="{StaticResource Studio.ButtonBase}" Padding="10,6" FontSize="11" Margin="8,0,0,0"
+                                    ToolTip="Select and add a music directory to the library index" AutomationProperties.Name="Add Music Folder"/>
+                            <Button x:Name="BtnRescanLibrary" Content="🔄 Rescan" Click="BtnRescanLibrary_Click"
+                                    Style="{StaticResource Studio.ButtonBase}" Padding="10,6" FontSize="11" Margin="6,0,0,0"
+                                    ToolTip="Rescan and refresh all indexed music folders" AutomationProperties.Name="Rescan Library"/>
+                            <Button x:Name="BtnOpenFlac" Content="Open FLAC" Click="BtnOpenFlac_Click"
+                                    Style="{StaticResource Studio.ButtonBase}" Padding="10,6" FontSize="11" Margin="6,0,0,0"
+                                    ToolTip="Open a single FLAC track directly (Ctrl+O)" AutomationProperties.Name="Open FLAC File"/>
                         </StackPanel>
                     </Grid>
 
                     <!-- Row 1: Filter Pills & Playback Actions -->
-                    <DockPanel Grid.Row="1" Margin="0,16,0,12" LastChildFill="True">
-                        <!-- Right: Action Buttons (Auto-Discover, Scan, Open FLAC, Play All, Shuffle) -->
+                    <DockPanel Grid.Row="1" Margin="0,14,0,12" LastChildFill="True">
+                        <!-- Right: Playback Actions -->
                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button x:Name="BtnAutoDiscover" Content="⟳ Auto-Discover" Click="BtnAutoDiscover_Click"
-                                    Style="{StaticResource Studio.PrimaryButton}" Padding="10,6" FontSize="11" Margin="0,0,6,0"
-                                    ToolTip="Auto-discover music from standard folders"/>
-                            <Button x:Name="BtnScanFolder" Content="Scan Folder" Click="BtnScanFolder_Click"
-                                    Style="{StaticResource Studio.ButtonBase}" Padding="10,6" FontSize="11" Margin="0,0,6,0"
-                                    ToolTip="Scan a custom directory for FLAC files"/>
-                            <Button x:Name="BtnOpenFlac" Content="Open FLAC" Click="BtnOpenFlac_Click"
-                                    Style="{StaticResource Studio.ButtonBase}" Padding="10,6" FontSize="11" Margin="0,0,8,0"
-                                    ToolTip="Open a single FLAC track directly"/>
-
                             <Button x:Name="BtnPlayAllLibrary" Content="▶ Play All" Click="BtnPlayAllLibrary_Click"
                                     Style="{StaticResource Studio.ButtonBase}" Padding="10,6" FontSize="11" Margin="0,0,6,0"
                                     ToolTip="Play all library tracks sequentially"/>
                             <Button x:Name="BtnShuffleAllLibrary" Content="⇄ Shuffle" Click="BtnShuffleAllLibrary_Click"
                                     Style="{StaticResource Studio.ButtonBase}" Padding="10,6" FontSize="11" Margin="0,0,6,0"
                                     ToolTip="Shuffle all tracks"/>
+                            <Button x:Name="BtnAutoDiscover" Content="⟳ Auto-Discover" Click="BtnAutoDiscover_Click"
+                                    Style="{StaticResource Studio.ButtonBase}" Padding="10,6" FontSize="11" Margin="0,0,6,0"
+                                    ToolTip="Auto-discover music from standard folders" AutomationProperties.Name="Auto-Discover Music"/>
                             <Button x:Name="BtnClearLibrary" Content="Clear" Click="BtnClearLibrary_Click"
                                     Style="{StaticResource Studio.ButtonBase}" Padding="8,6" FontSize="11"
                                     ToolTip="Clear cached library tracks"/>
@@ -390,19 +394,19 @@
                     <!-- Row 2: Aligned Column Headers -->
                     <Grid Grid.Row="2" Margin="10,4,10,8">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="42"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="160"/>
-                            <ColumnDefinition Width="130"/>
-                            <ColumnDefinition Width="72"/>
-                            <ColumnDefinition Width="42"/>
+                            <ColumnDefinition Width="42" x:Name="ColHeaderIndex"/>
+                            <ColumnDefinition Width="*" x:Name="ColHeaderTitle"/>
+                            <ColumnDefinition Width="140" x:Name="ColHeaderAlbum"/>
+                            <ColumnDefinition Width="120" x:Name="ColHeaderResolution"/>
+                            <ColumnDefinition Width="60" x:Name="ColHeaderDuration"/>
+                            <ColumnDefinition Width="36" x:Name="ColHeaderFav"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="#" FontSize="11" Foreground="{StaticResource Studio.TextMuted}" HorizontalAlignment="Center"/>
-                        <TextBlock Grid.Column="1" Text="TITLE" FontSize="11" Foreground="{StaticResource Studio.TextMuted}" Margin="8,0,0,0"/>
-                        <TextBlock Grid.Column="2" Text="ALBUM" FontSize="11" Foreground="{StaticResource Studio.TextMuted}"/>
-                        <TextBlock Grid.Column="3" Text="RESOLUTION" FontSize="11" Foreground="{StaticResource Studio.TextMuted}"/>
-                        <TextBlock Grid.Column="4" Text="TIME" FontSize="11" Foreground="{StaticResource Studio.TextMuted}" HorizontalAlignment="Right"/>
-                        <TextBlock Grid.Column="5" Text="" FontSize="11" Foreground="{StaticResource Studio.TextMuted}"/>
+                        <TextBlock Grid.Column="0" Text="#" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Studio.TextMuted}" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="TITLE" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Studio.TextMuted}" Margin="8,0,0,0"/>
+                        <TextBlock Grid.Column="2" Text="ALBUM" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Studio.TextMuted}"/>
+                        <TextBlock Grid.Column="3" Text="RESOLUTION" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Studio.TextMuted}"/>
+                        <TextBlock Grid.Column="4" Text="TIME" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource Studio.TextMuted}" HorizontalAlignment="Right"/>
+                        <TextBlock Grid.Column="5" Text="" FontSize="11.5" Foreground="{StaticResource Studio.TextMuted}"/>
                     </Grid>
 
                     <!-- Row 3: Track List -->
@@ -445,10 +449,10 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="42"/>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="160"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="72"/>
-                                            <ColumnDefinition Width="42"/>
+                                            <ColumnDefinition Width="140"/>
+                                            <ColumnDefinition Width="120"/>
+                                            <ColumnDefinition Width="60"/>
+                                            <ColumnDefinition Width="36"/>
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Context Menu -->
@@ -586,9 +590,9 @@
                         <StackPanel Margin="28,20,28,24" HorizontalAlignment="Stretch">
                             <Grid Margin="0,0,0,24">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="190"/>
+                                    <ColumnDefinition Width="200" x:Name="ColNpArtwork"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="220"/>
+                                    <ColumnDefinition Width="230" x:Name="ColNpQueue"/>
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Column 0: Vinyl / Artwork Showcase -->
@@ -681,7 +685,7 @@
                                                 </Border>
                                             </DockPanel>
 
-                                            <Expander Header="Signal Chain Details" IsExpanded="False"
+                                            <Expander Header="Signal Path &amp; Engine Telemetry" IsExpanded="False"
                                                       Foreground="{StaticResource Studio.TextSecondary}" FontSize="11">
                                                 <StackPanel Margin="0,8,0,0">
                                                     <Grid Margin="0,2,0,8">
@@ -851,7 +855,7 @@
                                     </DockPanel>
                                     <Border Background="{StaticResource Studio.Background}" CornerRadius="8" Height="110" ClipToBounds="True"
                                             BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
-                                        <Canvas x:Name="CnvEqVis" Height="110" Width="686" MouseMove="CnvVis_MouseMove" MouseLeave="CnvVis_MouseLeave"/>
+                                        <Canvas x:Name="CnvEqVis" Height="110" HorizontalAlignment="Stretch" MouseMove="CnvVis_MouseMove" MouseLeave="CnvVis_MouseLeave"/>
                                     </Border>
                                 </StackPanel>
                             </Border>
@@ -948,7 +952,7 @@
                                     </DockPanel>
                                     <Border Background="{StaticResource Studio.Background}" CornerRadius="8" Height="90" ClipToBounds="True"
                                             BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
-                                        <Canvas x:Name="CnvVocalVis" Height="90" Width="686" MouseMove="CnvVis_MouseMove" MouseLeave="CnvVis_MouseLeave"/>
+                                        <Canvas x:Name="CnvVocalVis" Height="90" HorizontalAlignment="Stretch" MouseMove="CnvVis_MouseMove" MouseLeave="CnvVis_MouseLeave"/>
                                     </Border>
                                 </StackPanel>
                             </Border>
@@ -1051,29 +1055,29 @@
                             <StackPanel Margin="0,0,0,24">
                                 <TextBlock Text="Settings &amp; Engine Configuration" Style="{StaticResource Studio.PageTitle}"/>
                                 <TextBlock Text="Manage audio DAC streaming, bit-perfect compliance, playback automation, and library directories"
-                                           Foreground="{StaticResource Studio.TextSecondary}" FontSize="12" Margin="0,4,0,0"/>
+                                           Foreground="{StaticResource Studio.TextSecondary}" FontSize="12.5" Margin="0,4,0,0"/>
                             </StackPanel>
 
-                            <!-- Audio Output & DAC Streaming -->
+                            <!-- 1. AUDIO OUTPUT AND WASAPI -->
                             <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
                                     Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
                                 <StackPanel>
                                     <DockPanel Margin="0,0,0,16">
-                                        <TextBlock Text="Audio Output &amp; DAC Streaming" FontWeight="SemiBold" FontSize="15"
+                                        <TextBlock Text="1. Audio Output &amp; WASAPI Configuration" FontWeight="SemiBold" FontSize="15"
                                                    Foreground="{StaticResource Studio.TextPrimary}" VerticalAlignment="Center"/>
                                         <Border DockPanel.Dock="Right" Background="{StaticResource Studio.Surface}" CornerRadius="4" Padding="8,3">
                                             <TextBlock Text="WASAPI KERNEL STREAMING" Foreground="{StaticResource Studio.Gold}" FontSize="9" FontWeight="Bold"/>
                                         </Border>
                                     </DockPanel>
 
-                                    <TextBlock Text="Output Device / Audio Endpoint" FontWeight="Medium" FontSize="12"
+                                    <TextBlock Text="Output Device / Audio Endpoint" FontWeight="Medium" FontSize="12.5"
                                                Foreground="{StaticResource Studio.TextSecondary}" Margin="0,0,0,8"/>
                                     <ComboBox x:Name="CboDevices" DisplayMemberPath="FriendlyName"
                                               SelectionChanged="CboDevices_SelectionChanged" Margin="0,0,0,18"/>
 
-                                    <TextBlock Text="WASAPI Hardware Access Mode" FontWeight="Medium" FontSize="12"
-                                               Foreground="{StaticResource Studio.TextSecondary}" Margin="0,0,0,8"/>
-                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                    <TextBlock Text="WASAPI Hardware Access Mode" FontWeight="Medium" FontSize="12.5"
+                                               Foreground="{StaticResource Studio.TextSecondary}" Margin="0,0,8,8"/>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                         <RadioButton x:Name="RadShared" Content="Shared Mode (Windows System Mixer)"
                                                      GroupName="WasapiMode" IsChecked="True"
                                                      Margin="0,0,32,0" Checked="RadWasapiMode_Checked"/>
@@ -1081,20 +1085,52 @@
                                                      GroupName="WasapiMode" Checked="RadWasapiMode_Checked"/>
                                     </StackPanel>
 
-                                    <Button x:Name="BtnEnableBitPerfect"
-                                            Content="● Activate Original Mode (WASAPI Exclusive)"
-                                            Style="{StaticResource Studio.PrimaryButton}"
-                                            HorizontalAlignment="Left"
-                                            Click="BtnEnableBitPerfect_Click"/>
+                                    <Border Background="{StaticResource Studio.Surface}" CornerRadius="8" Padding="14,10" Margin="0,0,0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="• Exclusive Mode: Grants HiResPlayer direct, bit-perfect hardware access to your DAC or sound card. Bypasses Windows audio mixing, resampling, and system notification sounds."
+                                                       Foreground="{StaticResource Studio.TextSecondary}" FontSize="11.5" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                            <TextBlock Text="• Shared Mode: Routes decoded PCM through the Windows system audio mixer. Ideal when listening alongside other applications."
+                                                       Foreground="{StaticResource Studio.TextMuted}" FontSize="11.5" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </Border>
 
-                            <!-- Bluetooth Fidelity & Codec Architecture -->
+                            <!-- 2. ORIGINAL PLAYBACK AND STUDIO PROCESSING -->
                             <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
                                     Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
                                 <StackPanel>
                                     <DockPanel Margin="0,0,0,14">
-                                        <TextBlock Text="Bluetooth Fidelity &amp; Codec Architecture" FontWeight="SemiBold" FontSize="15"
+                                        <TextBlock Text="2. Original Playback &amp; Studio Processing" FontWeight="SemiBold" FontSize="15"
+                                                   Foreground="{StaticResource Studio.TextPrimary}" VerticalAlignment="Center"/>
+                                        <Border DockPanel.Dock="Right" Background="{StaticResource Studio.Surface}" CornerRadius="4" Padding="8,3">
+                                            <TextBlock Text="FIDELITY PIPELINE" Foreground="{StaticResource Studio.Gold}" FontSize="9" FontWeight="Bold"/>
+                                        </Border>
+                                    </DockPanel>
+
+                                    <TextBlock Text="Configure pure untouched PCM streaming vs. Studio DSP processing (10-Band EQ, 12-Band Parametric, Vocal/Instrumental Focus)."
+                                               Foreground="{StaticResource Studio.TextSecondary}" FontSize="12" Margin="0,0,0,14" TextWrapping="Wrap"/>
+
+                                    <Button x:Name="BtnEnableBitPerfect"
+                                            Content="● Activate Original Mode (WASAPI Exclusive Passthrough)"
+                                            Style="{StaticResource Studio.PrimaryButton}"
+                                            HorizontalAlignment="Left"
+                                            Click="BtnEnableBitPerfect_Click"
+                                            Margin="0,0,0,12"/>
+
+                                    <Border Background="{StaticResource Studio.Surface}" CornerRadius="8" Padding="14,10">
+                                        <TextBlock Text="Bit-Perfect Eligibility Policy: When Original Mode is active, all DSP filters and resamplers are bypassed so the DAC receives original, byte-exact PCM frames. If EQ, preamp, or center focus processing is engaged, the player transparently reports 'WASAPI Exclusive — DSP Active' to maintain complete fidelity honesty."
+                                                   Foreground="{StaticResource Studio.TextMuted}" FontSize="11.5" TextWrapping="Wrap"/>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 3. BLUETOOTH FIDELITY & CODEC ARCHITECTURE -->
+                            <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
+                                    Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,14">
+                                        <TextBlock Text="3. Bluetooth Fidelity &amp; Codec Architecture" FontWeight="SemiBold" FontSize="15"
                                                    Foreground="{StaticResource Studio.TextPrimary}" VerticalAlignment="Center"/>
                                         <Border DockPanel.Dock="Right" Background="{StaticResource Studio.Surface}" CornerRadius="4" Padding="8,3">
                                             <TextBlock x:Name="TxtBtAdapterBadge" Text="BUILT-IN BLUETOOTH ADAPTER" Foreground="{StaticResource Studio.Blue}" FontSize="9" FontWeight="Bold"/>
@@ -1163,11 +1199,47 @@
                                 </StackPanel>
                             </Border>
 
-                            <!-- Live Stream Diagnostics -->
+                            <!-- 4. PLAYBACK PREFERENCES -->
                             <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
                                     Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
                                 <StackPanel>
-                                    <TextBlock Text="Live Stream Diagnostics" FontWeight="SemiBold" FontSize="15"
+                                    <TextBlock Text="4. Playback Preferences &amp; Automation" FontWeight="SemiBold" FontSize="15"
+                                               Foreground="{StaticResource Studio.TextPrimary}" Margin="0,0,0,14"/>
+                                    <CheckBox x:Name="ChkSettingsAutoAdvance" IsChecked="True"
+                                              Content="Continuous Playback: Automatically advance to the next track when a song finishes" Margin="0,0,0,12"/>
+                                    <CheckBox x:Name="ChkSettingsGapless" IsChecked="True"
+                                              Content="Gapless Pre-Buffering: Prime the hardware ring buffer to eliminate inter-track silence" Margin="0,0,0,12"/>
+                                    <CheckBox x:Name="ChkSettingsDacWarmup" IsChecked="True"
+                                              Content="DAC Warmup Pre-roll: Ramp silence prior to stream initialization to protect DAC output relays" Margin="0,0,0,12"/>
+                                    <CheckBox x:Name="ChkSettingsEnableVis" IsChecked="True"
+                                              Content="Real-time Visualizer: Enable hardware audio tap for FFT spectrum and phase meters"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 5. LIBRARY AND STORAGE -->
+                            <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
+                                    Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="5. Library &amp; Storage Management" FontWeight="SemiBold" FontSize="15"
+                                               Foreground="{StaticResource Studio.TextPrimary}" Margin="0,0,0,10"/>
+                                    <TextBlock Text="The player scans local directories for lossless FLAC files (16-bit / 24-bit PCM up to 192 kHz)."
+                                               Foreground="{StaticResource Studio.TextSecondary}" FontSize="12" Margin="0,0,0,16"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="BtnSettingsAddFolder" Content="➕ Add Music Folder..." Click="BtnScanFolder_Click"
+                                                Style="{StaticResource Studio.PrimaryButton}" Padding="14,8" Margin="0,0,10,0"/>
+                                        <Button x:Name="BtnSettingsRescan" Content="🔄 Rescan All" Click="BtnAutoDiscover_Click"
+                                                Style="{StaticResource Studio.ButtonBase}" Padding="14,8" Margin="0,0,10,0"/>
+                                        <Button x:Name="BtnSettingsClear" Content="Clear Cache" Click="BtnClearLibrary_Click"
+                                                Style="{StaticResource Studio.ButtonBase}" Padding="14,8"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 6. ADVANCED STREAM DIAGNOSTICS -->
+                            <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
+                                    Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="6. Advanced Stream Diagnostics" FontWeight="SemiBold" FontSize="15"
                                                Foreground="{StaticResource Studio.TextPrimary}" Margin="0,0,0,14"/>
 
                                     <TextBlock x:Name="DiagStatusMsg" Text="Status: Idle" FontSize="13" FontWeight="SemiBold"
@@ -1207,55 +1279,18 @@
                                     </Grid>
                                 </StackPanel>
                             </Border>
-
-                            <!-- Playback Automation -->
-                            <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
-                                    Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
-                                <StackPanel>
-                                    <TextBlock Text="Playback Automation" FontWeight="SemiBold" FontSize="15"
-                                               Foreground="{StaticResource Studio.TextPrimary}" Margin="0,0,0,14"/>
-                                    <CheckBox x:Name="ChkSettingsAutoAdvance" IsChecked="True"
-                                              Content="Continuous Playback: Automatically advance to the next track when a song finishes" Margin="0,0,0,12"/>
-                                    <CheckBox x:Name="ChkSettingsGapless" IsChecked="True"
-                                              Content="Gapless Pre-Buffering: Prime the hardware ring buffer to eliminate inter-track silence" Margin="0,0,0,12"/>
-                                    <CheckBox x:Name="ChkSettingsDacWarmup" IsChecked="True"
-                                              Content="DAC Warmup Pre-roll: Ramp silence prior to stream initialization to protect DAC output relays" Margin="0,0,0,12"/>
-                                    <CheckBox x:Name="ChkSettingsEnableVis" IsChecked="True"
-                                              Content="Real-time Visualizer: Enable hardware audio tap for FFT spectrum and phase meters"/>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Library & Storage -->
-                            <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
-                                    Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
-                                <StackPanel>
-                                    <TextBlock Text="Library &amp; Storage" FontWeight="SemiBold" FontSize="15"
-                                               Foreground="{StaticResource Studio.TextPrimary}" Margin="0,0,0,10"/>
-                                    <TextBlock Text="The player scans local directories for lossless FLAC files (16-bit / 24-bit PCM up to 192 kHz)."
-                                               Foreground="{StaticResource Studio.TextSecondary}" FontSize="12" Margin="0,0,0,16"/>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Button x:Name="BtnSettingsAddFolder" Content="Add Music Folder..." Click="BtnScanFolder_Click"
-                                                Style="{StaticResource Studio.PrimaryButton}" Padding="14,8" Margin="0,0,10,0"/>
-                                        <Button x:Name="BtnSettingsRescan" Content="Rescan All" Click="BtnAutoDiscover_Click"
-                                                Style="{StaticResource Studio.ButtonBase}" Padding="14,8" Margin="0,0,10,0"/>
-                                        <Button x:Name="BtnSettingsClear" Content="Clear Cache" Click="BtnClearLibrary_Click"
-                                                Style="{StaticResource Studio.ButtonBase}" Padding="14,8"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
             </Grid>
-
-            <!-- ── COLUMN 2: FIRST-CLASS QUEUE RAIL ("Playing next", 320px) ── -->
+<!-- ── COLUMN 2: FIRST-CLASS QUEUE RAIL ("Playing next", 320px) ── -->
             <Border x:Name="BorderQueueRail" Grid.Column="2" Background="{StaticResource Studio.Surface}"
                     BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1,0,0,0"
                     Padding="14,16" Visibility="Collapsed">
                 <DockPanel LastChildFill="True">
                     <!-- Queue Header -->
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-                        <Button x:Name="BtnCloseQueueRail" DockPanel.Dock="Right" Content="✕"
+                        <Button x:Name="BtnCloseQueueRail" DockPanel.Dock="Right" Content="✕" AutomationProperties.Name="Close Queue Rail"
                                 ToolTip="Close Queue Rail" Style="{StaticResource Studio.IconButton}"
                                 Width="28" Height="28" Click="BtnCloseQueueRail_Click"
                                 Foreground="{StaticResource Studio.TextMuted}"/>
@@ -1404,17 +1439,17 @@
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="540" Margin="10,0">
                     <!-- Transport Controls Row (Vertically Centered, Play Button Clear of Borders) -->
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,5">
-                        <Button x:Name="BtnShuffle" Style="{StaticResource TransportButtonStyle}"
+                        <Button x:Name="BtnShuffle" Style="{StaticResource TransportButtonStyle}" AutomationProperties.Name="Shuffle Mode"
                                 Width="34" Height="34" VerticalAlignment="Center" Click="BtnShuffle_Click" Margin="0,0,10,0" ToolTip="Shuffle Mode">
                             <TextBlock Text="⇄" FontSize="15" Foreground="{StaticResource Studio.TextSecondary}"/>
                         </Button>
-                        <Button x:Name="BtnPrev" Style="{StaticResource TransportButtonStyle}"
+                        <Button x:Name="BtnPrev" Style="{StaticResource TransportButtonStyle}" AutomationProperties.Name="Previous Track"
                                 Width="34" Height="34" VerticalAlignment="Center" Click="BtnPrev_Click" Margin="0,0,10,0" ToolTip="Previous Track">
                             <TextBlock Text="|◀" FontSize="13" Foreground="{StaticResource Studio.TextSecondary}"/>
                         </Button>
 
                         <!-- Circular Gold Play Button (42x42, vertically centered, safe margin) -->
-                        <Button x:Name="BtnPlayPause" Style="{StaticResource PlayButtonStyle}"
+                        <Button x:Name="BtnPlayPause" Style="{StaticResource PlayButtonStyle}" AutomationProperties.Name="Play or Pause"
                                 Width="42" Height="42" VerticalAlignment="Center" Click="BtnPlayPause_Click" ToolTip="Play / Pause"
                                 Margin="0,0,10,0">
                             <Grid Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center">
@@ -1432,15 +1467,15 @@
                             </Grid>
                         </Button>
 
-                        <Button x:Name="BtnStop" Style="{StaticResource TransportButtonStyle}"
+                        <Button x:Name="BtnStop" Style="{StaticResource TransportButtonStyle}" AutomationProperties.Name="Stop Playback"
                                 Width="34" Height="34" VerticalAlignment="Center" Click="BtnStop_Click" Margin="0,0,10,0" ToolTip="Stop Playback">
                             <Rectangle Width="11" Height="11" Fill="{StaticResource Studio.TextSecondary}" RadiusX="2" RadiusY="2"/>
                         </Button>
-                        <Button x:Name="BtnNext" Style="{StaticResource TransportButtonStyle}"
+                        <Button x:Name="BtnNext" Style="{StaticResource TransportButtonStyle}" AutomationProperties.Name="Next Track"
                                 Width="34" Height="34" VerticalAlignment="Center" Click="BtnNext_Click" Margin="0,0,10,0" ToolTip="Next Track">
                             <TextBlock Text="▶|" FontSize="13" Foreground="{StaticResource Studio.TextSecondary}"/>
                         </Button>
-                        <Button x:Name="BtnRepeat" Style="{StaticResource TransportButtonStyle}"
+                        <Button x:Name="BtnRepeat" Style="{StaticResource TransportButtonStyle}" AutomationProperties.Name="Repeat Mode"
                                 Width="34" Height="34" VerticalAlignment="Center" Click="BtnRepeat_Click" ToolTip="Repeat Mode">
                             <TextBlock Text="↻" FontSize="15" Foreground="{StaticResource Studio.TextSecondary}"/>
                         </Button>
@@ -1456,7 +1491,7 @@
                         <TextBlock x:Name="TxtCurrentTime" Text="0:00" Grid.Column="0"
                                    Foreground="{StaticResource Studio.TextMuted}" FontSize="11"
                                    VerticalAlignment="Center"/>
-                        <Slider x:Name="SldPosition" Grid.Column="1" Minimum="0" Maximum="100" Value="0"
+                        <Slider x:Name="SldPosition" Grid.Column="1" AutomationProperties.Name="Position Seeker" Minimum="0" Maximum="100" Value="0"
                                 VerticalAlignment="Center" Margin="6,0"
                                 IsMoveToPointEnabled="True"
                                 ValueChanged="SldPosition_ValueChanged"
@@ -1486,15 +1521,15 @@
                     </StackPanel>
 
                     <!-- Queue Rail Toggle Button -->
-                    <Button x:Name="BtnDockNowPlaying" Content="Queue" ToolTip="Toggle Playing Next Queue Rail"
+                    <Button x:Name="BtnDockNowPlaying" Content="Queue" AutomationProperties.Name="Toggle Queue Rail" ToolTip="Toggle Playing Next Queue Rail"
                             Click="BtnDockNowPlaying_Click" Style="{StaticResource Studio.ButtonBase}"
                             Padding="8,5" FontSize="11" Margin="0,0,10,0"/>
 
                     <!-- Master Volume Controls -->
-                    <Button x:Name="BtnVolumeMute" Content="VOL" Click="BtnVolumeMute_Click"
+                    <Button x:Name="BtnVolumeMute" Content="VOL" AutomationProperties.Name="Toggle Volume Mute" Click="BtnVolumeMute_Click"
                             Background="Transparent" BorderThickness="0" Foreground="{StaticResource Studio.TextSecondary}"
                             FontSize="10" FontWeight="SemiBold" Padding="3" Cursor="Hand" Margin="0,0,3,0"/>
-                    <Slider x:Name="SldVolume" Width="70" Minimum="0" Maximum="100" Value="100"
+                    <Slider x:Name="SldVolume" Width="70" AutomationProperties.Name="Volume Slider" Minimum="0" Maximum="100" Value="100"
                             IsMoveToPointEnabled="True" VerticalAlignment="Center"
                             ValueChanged="SldVolume_ValueChanged"/>
                     <TextBlock x:Name="TxtVolumeVal" Text="100%" Width="32" Margin="4,0,0,0"

@@ -141,7 +141,7 @@
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="Foreground" Value="{StaticResource Studio.TextSecondary}"/>
                 <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="Padding" Value="14,10"/>
+                <Setter Property="Padding" Value="10,6"/>
                 <Setter Property="FontWeight" Value="Normal"/>
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -155,7 +155,7 @@
                                     CornerRadius="8"
                                     Padding="{TemplateBinding Padding}">
                                 <DockPanel>
-                                    <Border x:Name="Indicator" DockPanel.Dock="Left" Width="3" CornerRadius="2" Background="Transparent" Margin="0,0,10,0"/>
+                                    <Border x:Name="Indicator" DockPanel.Dock="Left" Width="3" CornerRadius="2" Background="Transparent" Margin="0,0,6,0"/>
                                     <ContentPresenter VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Border>
@@ -178,7 +178,7 @@
                 <Setter Property="Background" Value="{StaticResource Studio.SurfaceSelected}"/>
                 <Setter Property="Foreground" Value="{StaticResource Studio.Gold}"/>
                 <Setter Property="BorderThickness" Value="0"/>
-                <Setter Property="Padding" Value="14,10"/>
+                <Setter Property="Padding" Value="10,6"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="FontSize" Value="13"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
@@ -190,7 +190,7 @@
                             <Border Background="{TemplateBinding Background}"
                                     CornerRadius="8" Padding="{TemplateBinding Padding}">
                                 <DockPanel>
-                                    <Border DockPanel.Dock="Left" Width="3" CornerRadius="2" Background="{StaticResource Studio.Gold}" Margin="0,0,10,0"/>
+                                    <Border DockPanel.Dock="Left" Width="3" CornerRadius="2" Background="{StaticResource Studio.Gold}" Margin="0,0,6,0"/>
                                     <ContentPresenter VerticalAlignment="Center"/>
                                 </DockPanel>
                             </Border>

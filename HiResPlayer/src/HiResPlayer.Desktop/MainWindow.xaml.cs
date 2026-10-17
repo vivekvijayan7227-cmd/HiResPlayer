@@ -312,9 +312,67 @@ namespace HiResPlayer.Desktop
                 {
                     if (args[i] == "--capture-view" && i + 2 < args.Length)
                     {
-                        string viewName = args[i + 1];
+                        string viewName = args[i + 1].ToLowerInvariant();
                         string outPath = args[i + 2];
-                        if (viewName == "focus") NavVocalStudio_Click(this, new RoutedEventArgs());
+
+                        int customW = 1060;
+                        int customH = 660;
+                        bool forceCollapse = false;
+                        bool forceQueue = false;
+                        bool forceMax = false;
+
+                        for (int j = i + 3; j < args.Length; j++)
+                        {
+                            if (args[j].Equals("--width", StringComparison.OrdinalIgnoreCase) && j + 1 < args.Length)
+                                int.TryParse(args[++j], out customW);
+                            else if (args[j].Equals("--height", StringComparison.OrdinalIgnoreCase) && j + 1 < args.Length)
+                                int.TryParse(args[++j], out customH);
+                            else if (args[j].Equals("--sidebar-collapsed", StringComparison.OrdinalIgnoreCase))
+                                forceCollapse = true;
+                            else if (args[j].Equals("--queue-open", StringComparison.OrdinalIgnoreCase))
+                                forceQueue = true;
+                            else if (args[j].Equals("--maximized", StringComparison.OrdinalIgnoreCase))
+                                forceMax = true;
+                        }
+
+                        if (viewName == "min-width")
+                        {
+                            viewName = "library";
+                            customW = 840;
+                            customH = 500;
+                            forceCollapse = true;
+                        }
+                        else if (viewName == "maximized")
+                        {
+                            viewName = "library";
+                            forceMax = true;
+                        }
+                        else if (viewName == "sidebar-collapsed")
+                        {
+                            viewName = "library";
+                            forceCollapse = true;
+                        }
+                        else if (viewName == "queue")
+                        {
+                            viewName = "library";
+                            forceQueue = true;
+                        }
+
+                        if (customW > 0) Width = customW;
+                        if (customH > 0) Height = customH;
+                        if (forceMax) WindowState = WindowState.Maximized;
+
+                        if (forceCollapse) ApplySidebarState(true);
+
+                        if (forceQueue && BorderQueueRail != null && ColQueueRail != null)
+                        {
+                            if (Width < 1200) Width = 1240;
+                            RefreshQueueRail();
+                            BorderQueueRail.Visibility = Visibility.Visible;
+                            ColQueueRail.Width = new GridLength(320);
+                        }
+
+                        if (viewName == "focus" || viewName == "vocal") NavVocalStudio_Click(this, new RoutedEventArgs());
                         else if (viewName == "settings") NavSettings_Click(this, new RoutedEventArgs());
                         else if (viewName == "direct-settings")
                         {
@@ -332,18 +390,22 @@ namespace HiResPlayer.Desktop
                             NavNowPlaying_Click(this, new RoutedEventArgs());
                             UpdateBluetoothUi("{0.0.0.00000000}.{af2282dc-936d-4e89-ad2c-a8eee685fa11}");
                         }
-                        else if (viewName == "eq") NavEqualizer_Click(this, new RoutedEventArgs());
+                        else if (viewName == "eq" || viewName == "equalizer") NavEqualizer_Click(this, new RoutedEventArgs());
                         else if (viewName == "playlist") SelectPlaylist("favorites");
-                        else if (viewName == "library") SelectPlaylist(null);
+                        else SelectPlaylist(null);
 
+                        UpdateEngineDiagnosticsAndLabels();
                         await System.Threading.Tasks.Task.Delay(600);
                         UpdateLayout();
-                        int w = (int)Math.Max(ActualWidth, 1200);
-                        int h = (int)Math.Max(ActualHeight, 720);
+
+                        int w = (int)Math.Max(ActualWidth, 100);
+                        int h = (int)Math.Max(ActualHeight, 100);
                         var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(w, h, 96, 96, PixelFormats.Pbgra32);
                         rtb.Render(this);
                         var enc = new System.Windows.Media.Imaging.PngBitmapEncoder();
                         enc.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+                        string? dir = Path.GetDirectoryName(outPath);
+                        if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                         using (var fs = File.Create(outPath))
                         {
                             enc.Save(fs);
@@ -1120,84 +1182,15 @@ namespace HiResPlayer.Desktop
         {
             var status = _facade.GetStatus();
 
-            string msg = _facade.GetStatusMessage();
-            DiagStatusMsg.Text = $"Status: {msg}";
+            // Synchronized Diagnostics and Format Labels
+            UpdateEngineDiagnosticsAndLabels();
+            UpdateBluetoothUi();
 
-            DiagSourceFmt.Text = status.SourceRate > 0
-                ? $"{status.SourceRate} Hz • {status.SourceValidBits}-bit • {status.SourceChannels}ch" : "None";
-            DiagOutputFmt.Text = status.OutputRate > 0
-                ? $"{status.OutputRate} Hz • {status.OutputValidBits}-bit (container {status.OutputContainerBits})" : "None";
-            DiagUnderruns.Text = status.UnderrunCount.ToString();
-
-            bool bitPerfect = status.BitperfectEligible == 1 && status.ActualMode == 1;
-            if (bitPerfect)
-            {
-                DiagBitPerfect.Text = "Eligible — Exclusive Original";
-                DiagBitPerfect.Foreground = (Brush)FindResource("AccentGreenBrush");
-                DiagPipeline.Text = "Original PCM — Bit-Perfect Eligible";
-                BarModeBadge.Text = "\u25CF Original \u2014 Exclusive";
-                BarModeBadge.Foreground = (Brush)FindResource("AccentGreenBrush");
-
-                if (NpSignalDot != null) NpSignalDot.Fill = (Brush)FindResource("AccentGreenBrush");
-                if (BadgeDacLock != null)
-                {
-                    BadgeDacLock.Background = new SolidColorBrush(Color.FromArgb(0x28, 0x10, 0xB9, 0x81));
-                    BadgeDacLock.BorderBrush = new SolidColorBrush(Color.FromArgb(0x66, 0x10, 0xB9, 0x81));
-                }
-                if (TxtDacLock != null)
-                {
-                    TxtDacLock.Text = "\u25CF ORIGINAL";
-                    TxtDacLock.Foreground = (Brush)FindResource("AccentGreenBrush");
-                }
-                if (NpSignalDsp != null)
-                {
-                    NpSignalDsp.Text = "Direct Pass-Through (0.00 dB)";
-                    NpSignalDsp.Foreground = (Brush)FindResource("AccentGreenBrush");
-                }
-            }
-            else
-            {
-                DiagBitPerfect.Text = "No (DSP Active or Shared Mode)";
-                DiagBitPerfect.Foreground = (Brush)FindResource("AccentAmberBrush");
-                DiagPipeline.Text = "Studio DSP \u2014 Processed";
-                BarModeBadge.Text = "\u25CF Studio DSP \u2014 Processed";
-                BarModeBadge.Foreground = (Brush)FindResource("AccentAmberBrush");
-
-                if (NpSignalDot != null) NpSignalDot.Fill = (Brush)FindResource("AccentAmberBrush");
-                if (BadgeDacLock != null)
-                {
-                    BadgeDacLock.Background = new SolidColorBrush(Color.FromArgb(0x28, 0xF5, 0x9E, 0x0B));
-                    BadgeDacLock.BorderBrush = new SolidColorBrush(Color.FromArgb(0x66, 0xF5, 0x9E, 0x0B));
-                }
-                if (TxtDacLock != null)
-                {
-                    TxtDacLock.Text = "\u25CF STUDIO DSP";
-                    TxtDacLock.Foreground = (Brush)FindResource("AccentAmberBrush");
-                }
-                if (NpSignalDsp != null)
-                {
-                    NpSignalDsp.Text = "Active DSP (EQ & Focus Studio)";
-                    NpSignalDsp.Foreground = (Brush)FindResource("AccentAmberBrush");
-                }
-            }
-
-            if (NpSignalMode != null)
-            {
-                NpSignalMode.Text = status.ActualMode == 1 ? "WASAPI Exclusive (Direct)" : "WASAPI Shared (Mixer)";
-            }
-            if (NpSignalEndpoint != null)
-            {
-                NpSignalEndpoint.Text = string.IsNullOrEmpty(BarDevicePill?.Text) ? "Default Audio Device" : BarDevicePill.Text;
-            }
             if (NpBufferStatus != null)
             {
                 string syncState = _isPlaying ? "Active Stream" : "Standby";
                 NpBufferStatus.Text = $"Buffer: Underruns: {status.UnderrunCount} • State: {syncState} • Ring Buffer: 100% Healthy";
             }
-
-            // Periodic Bluetooth status and Output Format label update
-            UpdateBluetoothUi();
-            UpdateOutputFormatLabel();
 
             // Seek bar
             if (!_isUserSeeking && status.SourceTotalSamples > 0 && status.SourceRate > 0)
@@ -1233,6 +1226,7 @@ namespace HiResPlayer.Desktop
                     b.Style = (Style)FindResource(b == btn ? "NavActiveButtonStyle" : "NavButtonStyle");
             }
             _activeNavBtn = btn;
+            btn?.BringIntoView();
         }
 
         private void HideAllViews()
@@ -1245,16 +1239,20 @@ namespace HiResPlayer.Desktop
         }
 
         private bool _isSidebarCollapsed = false;
+        private bool _userManuallyToggledSidebar = false;
 
-        private void BtnToggleSidebar_Click(object sender, RoutedEventArgs e)
+        public void ApplySidebarState(bool collapsed)
         {
-            _isSidebarCollapsed = !_isSidebarCollapsed;
+            _isSidebarCollapsed = collapsed;
             var visibility = _isSidebarCollapsed ? Visibility.Collapsed : Visibility.Visible;
-            if (ColSidebar != null) ColSidebar.Width = new GridLength(_isSidebarCollapsed ? 68 : 232);
+            if (ColSidebar != null) ColSidebar.Width = new GridLength(_isSidebarCollapsed ? 64 : 220);
+            if (PnlSidebarContent != null) PnlSidebarContent.Margin = _isSidebarCollapsed ? new Thickness(6, 14, 6, 14) : new Thickness(10, 14, 10, 14);
             if (PnlBrandText != null) PnlBrandText.Visibility = visibility;
             if (TxtNavLibraryHeader != null) TxtNavLibraryHeader.Visibility = visibility;
             if (TxtNavStudioHeader != null) TxtNavStudioHeader.Visibility = visibility;
             if (PnlPlaylistsList != null) PnlPlaylistsList.Visibility = visibility;
+            if (PnlPlaylistsDivider != null) PnlPlaylistsDivider.Visibility = visibility;
+            if (PnlPlaylistsHeader != null) PnlPlaylistsHeader.Visibility = visibility;
             if (TxtNavSongs != null) TxtNavSongs.Visibility = visibility;
             if (TxtNavAlbums != null) TxtNavAlbums.Visibility = visibility;
             if (TxtNavArtists != null) TxtNavArtists.Visibility = visibility;
@@ -1265,7 +1263,92 @@ namespace HiResPlayer.Desktop
             if (TxtNavEqualizer != null) TxtNavEqualizer.Visibility = visibility;
             if (TxtNavVocalStudio != null) TxtNavVocalStudio.Visibility = visibility;
             if (TxtNavSettings != null) TxtNavSettings.Visibility = visibility;
+
+            var navBtns = new[] { NavSongs, NavAlbums, NavArtists, NavFolders, NavFavorites, NavPlaylists, NavNowPlaying, NavEqualizer, NavVocalStudio, NavSettings };
+            foreach (var b in navBtns)
+            {
+                if (b != null)
+                {
+                    b.Padding = _isSidebarCollapsed ? new Thickness(0, 6, 0, 6) : new Thickness(10, 6, 10, 6);
+                    b.HorizontalContentAlignment = _isSidebarCollapsed ? HorizontalAlignment.Center : HorizontalAlignment.Left;
+                }
+            }
         }
+
+        private void BtnToggleSidebar_Click(object sender, RoutedEventArgs e)
+        {
+            _userManuallyToggledSidebar = true;
+            ApplySidebarState(!_isSidebarCollapsed);
+        }
+        // ════════════════════════════════════════════════════════════════════
+        // RESPONSIVE LAYOUT & SIZE CHANGED ADAPTATION
+        // ════════════════════════════════════════════════════════════════════
+
+        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            double w = e.NewSize.Width;
+
+            // 1. Sidebar responsiveness (auto-compact below 1020px if user hasn't explicitly set it)
+            if (w < 1020)
+            {
+                if (!_isSidebarCollapsed && !_userManuallyToggledSidebar)
+                {
+                    ApplySidebarState(true);
+                }
+            }
+            else
+            {
+                if (_isSidebarCollapsed && !_userManuallyToggledSidebar)
+                {
+                    ApplySidebarState(false);
+                }
+            }
+
+            // 2. Queue Rail responsiveness (at narrower widths, close in-grid column to protect center content)
+            if (w < 1100 && ColQueueRail != null && ColQueueRail.Width.Value > 0)
+            {
+                ColQueueRail.Width = new GridLength(0);
+                if (BorderQueueRail != null)
+                {
+                    BorderQueueRail.Visibility = Visibility.Collapsed;
+                }
+            }
+
+            // 3. Library responsive column widths based on available center content width
+            double centerW = w - (ColSidebar?.Width.Value ?? 220) - (ColQueueRail?.Width.Value ?? 0);
+            if (ColHeaderAlbum != null && ColHeaderResolution != null)
+            {
+                if (centerW < 580)
+                {
+                    ColHeaderAlbum.Width = new GridLength(0);
+                    ColHeaderResolution.Width = new GridLength(0);
+                }
+                else if (centerW < 740)
+                {
+                    ColHeaderAlbum.Width = new GridLength(110);
+                    ColHeaderResolution.Width = new GridLength(90);
+                }
+                else
+                {
+                    ColHeaderAlbum.Width = new GridLength(160);
+                    ColHeaderResolution.Width = new GridLength(130);
+                }
+            }
+
+            // 4. In Now Playing view: adjust column definitions if narrow
+            if (ColNpQueue != null)
+            {
+                if (w < 1000)
+                {
+                    ColNpQueue.Width = new GridLength(0);
+                }
+                else
+                {
+                    ColNpQueue.Width = new GridLength(230);
+                }
+            }
+        }
+
 
         private void NavLibrary_Click(object sender, RoutedEventArgs e) { HideAllViews(); ViewLibrary.Visibility = Visibility.Visible; SelectPlaylist(null); SetActiveNav(NavSongs ?? NavLibrary); }
         private void NavSongs_Click(object sender, RoutedEventArgs e) { HideAllViews(); ViewLibrary.Visibility = Visibility.Visible; SelectPlaylist(null); SetFilterPillActive("Songs"); SetActiveNav(NavSongs); }
@@ -1278,7 +1361,7 @@ namespace HiResPlayer.Desktop
             SelectPlaylist(null);
             SetFilterPillActive("Folders");
             SetActiveNav(NavFolders);
-            BtnScanFolder_Click(sender, e);
+            ShowFolderView();
         }
         private void NavFavorites_Click(object sender, RoutedEventArgs e) { HideAllViews(); ViewLibrary.Visibility = Visibility.Visible; SelectPlaylist("favorites"); SetFilterPillActive("Favorites"); SetActiveNav(NavFavorites); }
         private void NavPlaylists_Click(object sender, RoutedEventArgs e) { HideAllViews(); ViewLibrary.Visibility = Visibility.Visible; SetFilterPillActive("Playlists"); SetActiveNav(NavPlaylists); }
@@ -1321,7 +1404,49 @@ namespace HiResPlayer.Desktop
         private void BtnFilterFolders_Click(object sender, RoutedEventArgs e)
         {
             SetFilterPillActive("Folders");
-            BtnScanFolder_Click(sender, e);
+            ShowFolderView();
+        }
+
+        private void ShowFolderView()
+        {
+            SelectPlaylist(null);
+            _filteredTracks = _libraryTracks
+                .OrderBy(t => System.IO.Path.GetDirectoryName(t.FilePath) ?? string.Empty)
+                .ThenBy(t => t.Title)
+                .ToList();
+            LstTracks.Items.Clear();
+            foreach (var t in _filteredTracks)
+            {
+                LstTracks.Items.Add(t);
+            }
+            UpdateLibraryCount();
+            if (PnlEmptyLibrary != null)
+            {
+                PnlEmptyLibrary.Visibility = _filteredTracks.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
+        }
+
+        private async void BtnRescanLibrary_Click(object sender, RoutedEventArgs e)
+        {
+            var folders = _libraryTracks
+                .Select(t => System.IO.Path.GetDirectoryName(t.FilePath))
+                .Where(d => !string.IsNullOrEmpty(d) && System.IO.Directory.Exists(d))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (folders.Count == 0)
+            {
+                BtnScanFolder_Click(sender, e);
+                return;
+            }
+
+            foreach (var folder in folders)
+            {
+                if (folder != null)
+                {
+                    await RunScanAsync(folder);
+                }
+            }
         }
 
         private void BtnFilterFavorites_Click(object sender, RoutedEventArgs e)
@@ -2606,57 +2731,253 @@ namespace HiResPlayer.Desktop
 
         private void UpdateOutputFormatLabel()
         {
-            if (BarFormatInfo == null || _facade == null) return;
+            UpdateEngineDiagnosticsAndLabels();
+        }
+        // ════════════════════════════════════════════════════════════════════
+        // SYNCHRONIZED STREAM DIAGNOSTICS & FIDELITY STATUS
+        // ════════════════════════════════════════════════════════════════════
+
+        public void UpdateEngineDiagnosticsAndLabels()
+        {
+            if (_facade == null) return;
+            var status = _facade.GetStatus();
 
             var curDev = CboDevices?.SelectedItem as AudioDeviceItem;
             string curDevId = curDev?.Id ?? string.Empty;
             var bt = _facade.GetBluetoothDeviceInfo(curDevId);
 
+            // 1. Diagnostics Text Fields in Settings View
+            if (DiagStatusMsg != null)
+            {
+                string msg = _facade.GetStatusMessage();
+                DiagStatusMsg.Text = $"Status: {msg}";
+            }
+
+            if (DiagSourceFmt != null)
+            {
+                DiagSourceFmt.Text = status.SourceRate > 0
+                    ? $"{status.SourceRate} Hz • {status.SourceValidBits}-bit • {status.SourceChannels}ch"
+                    : "No active audio stream";
+            }
+
+            if (DiagOutputFmt != null)
+            {
+                DiagOutputFmt.Text = status.OutputRate > 0
+                    ? $"{status.OutputRate} Hz • {status.OutputValidBits}-bit (container {status.OutputContainerBits}-bit)"
+                    : "No endpoint format";
+            }
+
+            if (DiagUnderruns != null)
+            {
+                DiagUnderruns.Text = status.UnderrunCount.ToString();
+            }
+
+            if (DiagEndpoint != null && curDev != null)
+            {
+                DiagEndpoint.Text = curDev.FriendlyName;
+            }
+
+            // 2. Stream State & Mode Determination (Derived exclusively from native engine)
+            string labelText;
+            string dockFormatText;
+            string pipelineText;
+            string bitPerfectText;
+            Brush statusBrush;
+            string tooltip;
+            string dspText;
+            string modeText;
+
+            bool isExclusiveRequested = RadExclusive?.IsChecked == true;
+            bool isActuallyExclusive = status.ActualMode == 1; // 1 = HP_EXCLUSIVE
+            bool isBpEligible = status.BitperfectEligible == 1 && isActuallyExclusive;
+            bool isDspBypassed = (ChkEqBypass == null || ChkEqBypass.IsChecked == true) &&
+                                 (SldPreamp == null || Math.Abs(SldPreamp.Value) < 0.01) &&
+                                 (RadOriginal == null || RadOriginal.IsChecked == true);
+
             if (bt.IsBluetooth)
             {
                 if (bt.Profile == HP_BluetoothProfile.Hfp)
                 {
-                    BarFormatInfo.Text = "Bluetooth HFP (Voice)";
-                    BarFormatInfo.Foreground = (Brush)FindResource("AccentRedBrush");
-                    BarFormatInfo.ToolTip = "Bluetooth Hands-Free Profile (16 kHz Mono Voice)";
+                    labelText = "Bluetooth HFP (Voice)";
+                    dockFormatText = "Bluetooth HFP (Voice)";
+                    pipelineText = "Voice Gateway (16 kHz Mono - Perceptual Compression)";
+                    bitPerfectText = "No (Bluetooth HFP Voice Profile)";
+                    statusBrush = (Brush)FindResource("AccentRedBrush");
+                    tooltip = "Bluetooth Hands-Free Profile (16 kHz Mono Voice) — High latency, low bandwidth voice gateway";
+                    dspText = "Voice Filter / Mono Downmix";
+                    modeText = "Bluetooth Hands-Free";
                 }
                 else
                 {
-                    BarFormatInfo.Text = $"Bluetooth ({bt.CodecDisplayName})";
-                    BarFormatInfo.Foreground = (Brush)FindResource("AccentCyanBrush");
-                    BarFormatInfo.ToolTip = $"Bluetooth A2DP Stereo Audio — Codec: {bt.CodecDisplayName}";
+                    labelText = $"Bluetooth ({bt.CodecDisplayName})";
+                    dockFormatText = $"Bluetooth ({bt.CodecDisplayName})";
+                    pipelineText = $"Bluetooth A2DP Audio ({bt.CodecDisplayName})";
+                    bitPerfectText = "No (Bluetooth Lossy Compression)";
+                    statusBrush = (Brush)FindResource("AccentCyanBrush");
+                    tooltip = $"Bluetooth A2DP Stereo Audio — Codec: {bt.CodecDisplayName} (Perceptual lossy compression, not lossless)";
+                    dspText = isDspBypassed ? "Bit-Transparent to Bluetooth Stack" : "Studio DSP Active";
+                    modeText = "WASAPI Shared → Bluetooth";
                 }
-                return;
             }
-
-            var status = _facade.GetStatus();
-            bool isExclusive = (status.ActualMode == 1) || (RadExclusive?.IsChecked == true);
-
-            if (isExclusive)
+            else if (string.IsNullOrEmpty(curDevId))
             {
-                bool isDspBypassed = (ChkEqBypass == null || ChkEqBypass.IsChecked == true) &&
-                                     (SldPreamp == null || Math.Abs(SldPreamp.Value) < 0.01) &&
-                                     (RadOriginal == null || RadOriginal.IsChecked == true);
-                bool isBitPerfect = (status.BitperfectEligible == 1 && status.ActualMode == 1) || isDspBypassed;
-
-                if (isBitPerfect)
+                labelText = "No Audio Device Selected";
+                dockFormatText = "No Audio Device Selected";
+                pipelineText = "Audio Engine Idle — No Output Endpoint Selected";
+                bitPerfectText = "No Audio Device Selected";
+                statusBrush = (Brush)FindResource("Studio.TextMuted");
+                tooltip = "Please select an active audio output endpoint in Settings.";
+                dspText = "Offline";
+                modeText = "Idle";
+            }
+            else if (status.OutputRate == 0)
+            {
+                // Endpoint selected, but playback stream is idle
+                if (isExclusiveRequested)
                 {
-                    BarFormatInfo.Text = "\u25CF Bit-Perfect Direct";
-                    BarFormatInfo.Foreground = (Brush)FindResource("AccentGreenBrush");
-                    BarFormatInfo.ToolTip = "WASAPI Exclusive Mode — Direct Hardware Access (Bit-Perfect PCM)";
+                    labelText = "WASAPI Exclusive (Ready)";
+                    dockFormatText = "WASAPI Exclusive (Ready)";
+                    pipelineText = "WASAPI Exclusive — Direct Hardware Access (Ready)";
+                    bitPerfectText = "Eligible when playback begins (Direct Mode)";
+                    statusBrush = (Brush)FindResource("Studio.Gold");
+                    tooltip = "WASAPI Exclusive Mode selected — Will stream untouched PCM directly to DAC on play.";
+                    dspText = isDspBypassed ? "Direct Pass-Through" : "Studio DSP Active";
+                    modeText = "Exclusive (Ready)";
                 }
                 else
                 {
-                    BarFormatInfo.Text = "\u25CF Exclusive (DSP)";
-                    BarFormatInfo.Foreground = (Brush)FindResource("AccentAmberBrush");
-                    BarFormatInfo.ToolTip = "WASAPI Exclusive Mode — Hardware Access with Studio DSP Processing";
+                    labelText = "WASAPI Shared — Windows Mixer";
+                    dockFormatText = "WASAPI Shared — Windows Mixer";
+                    pipelineText = "WASAPI Shared — Windows Audio Engine Mixer (Ready)";
+                    bitPerfectText = "No (Shared Mode Windows Mixer)";
+                    statusBrush = (Brush)FindResource("Studio.TextMuted");
+                    tooltip = "WASAPI Shared Mode selected — Audio will be mixed with system sounds.";
+                    dspText = isDspBypassed ? "Mixer Pass-Through" : "Studio DSP Active";
+                    modeText = "Shared (Ready)";
                 }
             }
-            else
+            else if (isActuallyExclusive)
             {
-                BarFormatInfo.Text = "Shared Mode (Mixer)";
-                BarFormatInfo.Foreground = (Brush)FindResource("TextMutedBrush");
-                BarFormatInfo.ToolTip = "WASAPI Shared Mode — Windows Audio Engine Mixer";
+                if (isBpEligible)
+                {
+                    labelText = "Original PCM — Bit-Perfect Eligible";
+                    dockFormatText = "Original PCM — Bit-Perfect Eligible";
+                    pipelineText = "Original PCM — Bit-Perfect Eligible";
+                    bitPerfectText = "Yes — Bit-Perfect Eligible";
+                    statusBrush = (Brush)FindResource("Studio.Green");
+                    tooltip = "WASAPI Exclusive Mode — Direct Hardware Access (Source sample rate and bit-depth preserved, zero DSP, zero mixing)";
+                    dspText = "Direct Pass-Through (0.00 dB)";
+                    modeText = "WASAPI Exclusive (Direct Access)";
+                }
+                else
+                {
+                    labelText = "WASAPI Exclusive — DSP Active";
+                    dockFormatText = "WASAPI Exclusive — DSP Active";
+                    pipelineText = "WASAPI Exclusive — Studio DSP Processing Active";
+                    bitPerfectText = "No (DSP Processing Active)";
+                    statusBrush = (Brush)FindResource("Studio.Gold");
+                    tooltip = "WASAPI Exclusive Mode — Direct Hardware Access with Studio DSP Processing (EQ, Preamp, or Center Focus active)";
+                    dspText = "Studio DSP (Float32)";
+                    modeText = "WASAPI Exclusive";
+                }
+            }
+            else // status.ActualMode == 0 (Shared Mode)
+            {
+                if (isExclusiveRequested)
+                {
+                    // Exclusive was requested but failed / unsupported -> Fallback to Shared!
+                    labelText = "Exclusive Unavailable — Using Shared Mode";
+                    dockFormatText = "Exclusive Unavailable — Using Shared Mode";
+                    pipelineText = "Exclusive Unavailable — Fallen back to Windows Audio Mixer";
+                    bitPerfectText = "No (Exclusive Fallback to Shared Mode)";
+                    statusBrush = (Brush)FindResource("Studio.Gold");
+                    tooltip = "Exclusive Mode was requested but could not be opened (endpoint is in exclusive use or requested format is unsupported by hardware). Running safely in Shared Mode.";
+                    dspText = (status.SourceRate != 0 && status.OutputRate != 0 && status.SourceRate != status.OutputRate)
+                        ? "Format Conversion / Resampling Active"
+                        : "Windows Audio Mixer";
+                    modeText = "WASAPI Shared (Fallback)";
+                }
+                else if (status.SourceRate != 0 && status.OutputRate != 0 && (status.SourceRate != status.OutputRate || status.SourceValidBits != status.OutputValidBits))
+                {
+                    labelText = "Format Conversion Active";
+                    dockFormatText = "Format Conversion Active";
+                    pipelineText = $"Format Conversion Active ({status.SourceRate} Hz → {status.OutputRate} Hz)";
+                    bitPerfectText = "No (Windows Mixer Resampling / Format Conversion)";
+                    statusBrush = (Brush)FindResource("Studio.TextSecondary");
+                    tooltip = $"WASAPI Shared Mode — Audio is resampled from {status.SourceRate} Hz to Windows Mixer endpoint rate ({status.OutputRate} Hz)";
+                    dspText = isDspBypassed ? "System Resampling" : "Studio DSP + Resampling";
+                    modeText = "WASAPI Shared (Mixer Resampling)";
+                }
+                else
+                {
+                    labelText = "WASAPI Shared — Windows Mixer";
+                    dockFormatText = "WASAPI Shared — Windows Mixer";
+                    pipelineText = "WASAPI Shared — Windows Audio Engine Mixer";
+                    bitPerfectText = "No (Shared Mode Windows Mixer)";
+                    statusBrush = (Brush)FindResource("Studio.TextMuted");
+                    tooltip = "WASAPI Shared Mode — Audio routed through Windows system audio engine mixer.";
+                    dspText = isDspBypassed ? "Pass-Through to Mixer" : "Studio DSP Active";
+                    modeText = "WASAPI Shared";
+                }
+            }
+
+            // 3. Apply to Playback Dock
+            if (BarFormatInfo != null)
+            {
+                BarFormatInfo.Text = dockFormatText;
+                BarFormatInfo.Foreground = statusBrush;
+                BarFormatInfo.ToolTip = tooltip;
+            }
+
+            // 4. Apply to Settings Diagnostics
+            if (DiagBitPerfect != null)
+            {
+                DiagBitPerfect.Text = bitPerfectText;
+                DiagBitPerfect.Foreground = isBpEligible ? (Brush)FindResource("Studio.Green") : statusBrush;
+            }
+            if (DiagPipeline != null)
+            {
+                DiagPipeline.Text = pipelineText;
+                DiagPipeline.Foreground = statusBrush;
+            }
+
+            // 5. Apply to Now Playing Stage
+            if (NpSignalDot != null) NpSignalDot.Fill = statusBrush;
+            if (TxtDacLock != null)
+            {
+                TxtDacLock.Text = isBpEligible ? "● ORIGINAL" : (isActuallyExclusive ? "● EXCLUSIVE" : "● SHARED");
+                TxtDacLock.Foreground = statusBrush;
+            }
+            if (BadgeDacLock != null)
+            {
+                if (isBpEligible)
+                {
+                    BadgeDacLock.Background = new SolidColorBrush(Color.FromArgb(0x28, 0x66, 0xD6, 0xA3));
+                    BadgeDacLock.BorderBrush = (Brush)FindResource("Studio.Success");
+                }
+                else if (isActuallyExclusive)
+                {
+                    BadgeDacLock.Background = new SolidColorBrush(Color.FromArgb(0x28, 0xF5, 0x9E, 0x0B));
+                    BadgeDacLock.BorderBrush = (Brush)FindResource("Studio.Warning");
+                }
+                else
+                {
+                    BadgeDacLock.Background = new SolidColorBrush(Color.FromArgb(0x20, 0x73, 0x7F, 0x93));
+                    BadgeDacLock.BorderBrush = (Brush)FindResource("Studio.Divider");
+                }
+            }
+            if (NpSignalDsp != null)
+            {
+                NpSignalDsp.Text = dspText;
+                NpSignalDsp.Foreground = statusBrush;
+            }
+            if (NpSignalMode != null)
+            {
+                NpSignalMode.Text = modeText;
+            }
+            if (NpSignalEndpoint != null && curDev != null)
+            {
+                NpSignalEndpoint.Text = curDev.FriendlyName;
             }
         }
 
@@ -3059,38 +3380,143 @@ namespace HiResPlayer.Desktop
 
         private void MainWindow_KeyDown(object sender, KeyEventArgs e)
         {
-            if (TxtSearch.IsFocused || (TxtModalPlaylistName != null && TxtModalPlaylistName.IsFocused)) return;
+            // Do not intercept if user is typing in search or text boxes
+            if ((TxtSearch != null && TxtSearch.IsFocused) ||
+                (TxtModalPlaylistName != null && TxtModalPlaylistName.IsFocused))
+            {
+                if (e.Key == Key.Escape)
+                {
+                    if (ModalPlaylistOverlay != null && ModalPlaylistOverlay.Visibility == Visibility.Visible)
+                    {
+                        ModalPlaylistOverlay.Visibility = Visibility.Collapsed;
+                        e.Handled = true;
+                    }
+                    else if (TxtSearch != null && TxtSearch.IsFocused)
+                    {
+                        Keyboard.ClearFocus();
+                        e.Handled = true;
+                    }
+                }
+                return;
+            }
+
             switch (e.Key)
             {
                 case Key.Space:
-                    BtnPlayPause_Click(this, new RoutedEventArgs()); e.Handled = true; break;
                 case Key.MediaPlayPause:
-                    BtnPlayPause_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                    BtnPlayPause_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
                 case Key.MediaStop:
-                    BtnStop_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                    BtnStop_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
                 case Key.MediaNextTrack:
-                    BtnNext_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                    BtnNext_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
                 case Key.MediaPreviousTrack:
-                    BtnPrev_Click(this, new RoutedEventArgs()); e.Handled = true; break;
-                case Key.Right when Keyboard.Modifiers == ModifierKeys.Control:
-                    BtnNext_Click(this, new RoutedEventArgs()); e.Handled = true; break;
-                case Key.Left when Keyboard.Modifiers == ModifierKeys.Control:
-                    BtnPrev_Click(this, new RoutedEventArgs()); e.Handled = true; break;
-                case Key.O when Keyboard.Modifiers == ModifierKeys.Control:
-                    BtnOpenFlac_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                    BtnPrev_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
+                case Key.Right when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
+                    BtnNext_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
+                case Key.Left when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
+                    BtnPrev_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
+                case Key.O when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
+                    BtnOpenFlac_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
                 case Key.F11:
-                    BtnWinMaximize_Click(this, new RoutedEventArgs()); e.Handled = true; break;
+                    BtnWinMaximize_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
                 case Key.Escape:
                     if (ModalPlaylistOverlay != null && ModalPlaylistOverlay.Visibility == Visibility.Visible)
                     {
                         ModalPlaylistOverlay.Visibility = Visibility.Collapsed;
                         e.Handled = true;
                     }
+                    else if (BorderQueueRail != null && BorderQueueRail.Visibility == Visibility.Visible)
+                    {
+                        BorderQueueRail.Visibility = Visibility.Collapsed;
+                        if (ColQueueRail != null) ColQueueRail.Width = new GridLength(0);
+                        e.Handled = true;
+                    }
+                    break;
+
+                case Key.M:
+                    BtnVolumeMute_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+
+                case Key.F when Keyboard.Modifiers == ModifierKeys.None:
+                    ToggleCurrentOrSelectedFavorite();
+                    e.Handled = true;
+                    break;
+
+                case Key.OemQuestion when Keyboard.Modifiers == ModifierKeys.None:
+                case Key.Divide when Keyboard.Modifiers == ModifierKeys.None:
+                    if (TxtSearch != null)
+                    {
+                        HideAllViews();
+                        ViewLibrary.Visibility = Visibility.Visible;
+                        SetActiveNav(NavSongs ?? NavLibrary);
+                        TxtSearch.Focus();
+                        TxtSearch.SelectAll();
+                        e.Handled = true;
+                    }
+                    break;
+
+                case Key.Up when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
+                    if (SldVolume != null)
+                    {
+                        SldVolume.Value = Math.Min(100, SldVolume.Value + 5);
+                        e.Handled = true;
+                    }
+                    break;
+
+                case Key.Down when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
+                    if (SldVolume != null)
+                    {
+                        SldVolume.Value = Math.Max(0, SldVolume.Value - 5);
+                        e.Handled = true;
+                    }
                     break;
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════
+        private void ToggleCurrentOrSelectedFavorite()
+        {
+            var target = _currentTrack ?? LstTracks.SelectedItem as TrackViewItem;
+            if (target != null)
+            {
+                target.IsFavorite = !target.IsFavorite;
+                if (target.IsFavorite)
+                {
+                    _playlistService.AddTrackToPlaylist("favorites", target.FilePath);
+                }
+                else
+                {
+                    _playlistService.RemoveTrackFromPlaylist("favorites", target.FilePath);
+                }
+                _playlistService.Save();
+                RefreshPlaylistsRail();
+            }
+        }
+// ════════════════════════════════════════════════════════════════════
         // PLAYLISTS & METADATA FILTERING
         // ════════════════════════════════════════════════════════════════════
 
@@ -3902,6 +4328,73 @@ namespace HiResPlayer.Desktop
             _facade.Dispose();
             SaveLibrary();
             base.OnClosed(e);
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        // AUTOMATED SCREENSHOT & VISUAL VERIFICATION
+        // ════════════════════════════════════════════════════════════════════
+
+        public void CaptureViewAndSave(string viewName, string outputPath, int width, int height, bool sidebarCollapsed, bool queueOpen)
+        {
+            Width = width;
+            Height = height;
+
+            if (sidebarCollapsed)
+            {
+                ApplySidebarState(true);
+            }
+
+            if (queueOpen && BorderQueueRail != null && ColQueueRail != null)
+            {
+                RefreshQueueRail();
+                BorderQueueRail.Visibility = Visibility.Visible;
+                ColQueueRail.Width = new GridLength(320);
+            }
+
+            HideAllViews();
+            switch (viewName.ToLowerInvariant())
+            {
+                case "nowplaying":
+                    ViewNowPlaying.Visibility = Visibility.Visible;
+                    SetActiveNav(NavNowPlaying);
+                    break;
+                case "equalizer":
+                case "eq":
+                    ViewEqualizer.Visibility = Visibility.Visible;
+                    SetActiveNav(NavEqualizer);
+                    break;
+                case "focus":
+                case "vocal":
+                    ViewVocalStudio.Visibility = Visibility.Visible;
+                    SetActiveNav(NavVocalStudio);
+                    break;
+                case "settings":
+                    ViewSettings.Visibility = Visibility.Visible;
+                    SetActiveNav(NavSettings);
+                    break;
+                case "library":
+                default:
+                    ViewLibrary.Visibility = Visibility.Visible;
+                    SetActiveNav(NavSongs ?? NavLibrary);
+                    break;
+            }
+
+            UpdateLayout();
+
+            var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                Math.Max(100, width), Math.Max(100, height), 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            rtb.Render(this);
+
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(rtb));
+
+            string? dir = System.IO.Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrEmpty(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            using var fs = new FileStream(outputPath, FileMode.Create, FileAccess.Write);
+            encoder.Save(fs);
         }
     }
 }
