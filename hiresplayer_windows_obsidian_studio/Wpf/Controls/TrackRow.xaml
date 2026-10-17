@@ -1,0 +1,40 @@
+<UserControl x:Class="HiResPlayer.Desktop.Controls.TrackRow"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinHeight="58">
+    <Grid Margin="4,2">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="42" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="150" />
+            <ColumnDefinition Width="72" />
+            <ColumnDefinition Width="42" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Width="34" Height="34" CornerRadius="7"
+                Background="{StaticResource Studio.SurfaceElevated}"
+                VerticalAlignment="Center">
+            <TextBlock Text="♫" FontSize="18" Foreground="{StaticResource Studio.Gold}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Border>
+
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,12,0">
+            <TextBlock Text="{Binding Title}" Foreground="{StaticResource Studio.TextPrimary}"
+                       FontSize="14" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="{Binding Artist}" Foreground="{StaticResource Studio.TextSecondary}"
+                       FontSize="12" TextTrimming="CharacterEllipsis" Margin="0,3,0,0" />
+        </StackPanel>
+
+        <TextBlock Grid.Column="2" Text="{Binding Album}" VerticalAlignment="Center"
+                   Foreground="{StaticResource Studio.TextSecondary}"
+                   TextTrimming="CharacterEllipsis" Margin="8,0" />
+
+        <TextBlock Grid.Column="3" Text="{Binding Duration}" VerticalAlignment="Center"
+                   HorizontalAlignment="Right" Foreground="{StaticResource Studio.TextMuted}"
+                   Margin="4,0" />
+
+        <Button Grid.Column="4" Content="⋯" ToolTip="More track actions"
+                Style="{StaticResource Studio.IconButton}"
+                AutomationProperties.Name="More track actions" />
+    </Grid>
+</UserControl>

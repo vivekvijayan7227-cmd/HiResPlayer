@@ -1,0 +1,21 @@
+{
+  "name": "Obsidian Studio",
+  "platform": "Windows desktop",
+  "colors": {
+    "background": "#07090E",
+    "surface": "#101521",
+    "surfaceElevated": "#182033",
+    "surfaceSelected": "#202B40",
+    "gold": "#F5C76A",
+    "goldHighlight": "#FFE5A3",
+    "blue": "#67B7FF",
+    "textPrimary": "#E8ECF4",
+    "textSecondary": "#A0A9BA",
+    "textMuted": "#737F93",
+    "divider": "#293246",
+    "progressTrack": "#343D50",
+    "success": "#66D6A3",
+    "warning": "#F2B866",
+    "error": "#FF777F"
+  }
+}

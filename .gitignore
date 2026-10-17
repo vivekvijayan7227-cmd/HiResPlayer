@@ -1,0 +1,69 @@
+# =====================================================================
+# HiResPlayer .gitignore
+# =====================================================================
+
+# Build & Compilation Artifacts
+[Bb]in/
+[Oo]bj/
+[Bb]uild/
+[Dd]ist/
+HiResPlayer_Installer/
+Installer/
+flac-1.4.3/build/
+
+# Packaging Payloads & Zips
+*.zip
+*.7z
+*.tar.gz
+HiResPlayer/assets/payload.zip
+
+# Compiled Binaries & Libraries
+*.exe
+*.pdb
+*.ilk
+*.idb
+*.exp
+*.lib
+*.a
+*.dll
+
+# Allow required test runtime support libraries
+!HiResPlayer/tests/libc++.dll
+!HiResPlayer/tests/libunwind.dll
+
+# Ninja & CMake Artifacts
+.ninja_deps
+.ninja_log
+build.ninja
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Logs, Dumps & Temporary Files
+*.log
+*.dmp
+crash.log
+app.log
+*.tmp
+*.bak
+*.swp
+
+# IDE & User-Specific Settings
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+
+# OS-Specific Files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Scratch & Temporary Verification Files
+build_obsidian_icon.py
+test_taskbar.ps1
+.DirectoryName

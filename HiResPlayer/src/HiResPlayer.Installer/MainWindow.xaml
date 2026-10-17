@@ -1,0 +1,112 @@
+<Window x:Class="HiResPlayer.Installer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="HiRes Player — Studio Master Setup"
+        Icon="app_icon.png"
+        Height="500" Width="660"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanMinimize"
+        Background="{StaticResource BgBrush}"
+        FontFamily="Segoe UI Variable Text, Segoe UI, sans-serif">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- Header -->
+            <RowDefinition Height="*"/>     <!-- Body -->
+            <RowDefinition Height="70"/>    <!-- Action Bar -->
+        </Grid.RowDefinitions>
+
+        <!-- ═══ HEADER ═══ -->
+        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="24,18">
+            <DockPanel LastChildFill="True">
+                <Image DockPanel.Dock="Left" Source="app_icon.png" Width="48" Height="48"
+                       Margin="0,0,16,0" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                
+                <StackPanel DockPanel.Dock="Right" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <Border Background="#0D2A1A" BorderBrush="{StaticResource AccentGreenBrush}"
+                            BorderThickness="1" CornerRadius="6" Padding="8,3" Margin="0,0,0,4">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="6" Height="6" Fill="{StaticResource AccentGreenBrush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                            <TextBlock Text="100% Non-AI Certified" Foreground="{StaticResource AccentGreenBrush}" FontSize="10" FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </Border>
+                    <TextBlock Text="Release: v1.0.0-lts (Win64)" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="10" HorizontalAlignment="Right"/>
+                </StackPanel>
+
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="HiRes Player — Studio Master" FontSize="18" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Studio-Grade Bit-Perfect FLAC &amp; Enhanced Audio Architecture"
+                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" Margin="0,2,0,0"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ═══ BODY ═══ -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="24,16,24,10">
+
+                <!-- Install Location Card -->
+                <Border Background="{StaticResource SurfaceCardBrush}" CornerRadius="10"
+                        Padding="16,12" Margin="0,0,0,14" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="Installation Destination" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" Margin="0,0,0,6"/>
+                        <Grid Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtInstallPath" Padding="8,6" FontSize="11"
+                                     Background="#11111A" Foreground="{StaticResource TextPrimaryBrush}"
+                                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+                            <Button x:Name="BtnBrowse" Grid.Column="1" Content="Browse..." Margin="8,0,0,0"
+                                    Click="BtnBrowse_Click" Padding="14,6" FontSize="11"/>
+                        </Grid>
+                        <TextBlock Text="Installed locally for your user account (no administrator UAC elevation required)."
+                                   Foreground="{StaticResource TextMutedBrush}" FontSize="10"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Options Card -->
+                <Border Background="{StaticResource SurfaceCardBrush}" CornerRadius="10"
+                        Padding="16,12" Margin="0,0,0,14" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="Installation Options" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextPrimaryBrush}" FontSize="12" Margin="0,0,0,8"/>
+                        <CheckBox x:Name="ChkDesktopShortcut" Content="Create Desktop Shortcut" IsChecked="True"/>
+                        <CheckBox x:Name="ChkStartMenuShortcut" Content="Create Start Menu Shortcut &amp; Programs entry" IsChecked="True"/>
+                        <CheckBox x:Name="ChkAssociateFlac" Content="Associate with .flac audio files (Default Player)" IsChecked="True"/>
+                        <CheckBox x:Name="ChkLaunchAfter" Content="Launch HiResPlayer immediately after installation" IsChecked="True"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Progress & Status Card -->
+                <Border x:Name="CardProgress" Background="{StaticResource SurfaceCardBrush}" CornerRadius="10"
+                        Padding="16,12" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        Visibility="Collapsed">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,6">
+                            <TextBlock x:Name="TxtStatus" Text="Preparing installation..." Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"/>
+                            <TextBlock x:Name="TxtPercent" Text="0%" Foreground="{StaticResource AccentLightBrush}"
+                                       FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right"/>
+                        </DockPanel>
+                        <ProgressBar x:Name="PrgInstall" Minimum="0" Maximum="100" Value="0" Height="6"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ═══ BOTTOM ACTION BAR ═══ -->
+        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0" Padding="24,0">
+            <DockPanel VerticalAlignment="Center">
+                <Button x:Name="BtnCancel" DockPanel.Dock="Left" Content="Cancel" Click="BtnCancel_Click"
+                        Padding="18,8" FontSize="12"/>
+                <Button x:Name="BtnInstall" DockPanel.Dock="Right" Content="Install HiResPlayer" Click="BtnInstall_Click"
+                        Style="{StaticResource ActionButtonStyle}" HorizontalAlignment="Right"/>
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HiResPlayer.Application/HiResPlayer.Application.csproj" />
+    <Project Path="src/HiResPlayer.Desktop/HiResPlayer.Desktop.csproj" />
+    <Project Path="src/HiResPlayer.Infrastructure/HiResPlayer.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ManagedTests/HiResPlayer.Tests.csproj" />
+  </Folder>
+</Solution>
