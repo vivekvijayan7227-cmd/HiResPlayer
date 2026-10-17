@@ -5,6 +5,16 @@
 #include <chrono>
 #include <xmmintrin.h>
 
+static inline bool IsFormatIeeeFloat(const WAVEFORMATEXTENSIBLE& wfex) noexcept {
+    if (wfex.Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) return true;
+    if (wfex.Format.wFormatTag == WAVE_FORMAT_PCM) return false;
+    if (wfex.Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
+        static const GUID kFloat = { 0x00000003, 0x0000, 0x0010, { 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71 } };
+        return std::memcmp(&wfex.SubFormat, &kFloat, sizeof(GUID)) == 0;
+    }
+    return false;
+}
+
 PlaybackController::PlaybackController()
     : m_ring_buffer(1024 * 1024)
 {
@@ -20,8 +30,7 @@ PlaybackController::PlaybackController()
         FirePlaybackEvent(evt, m_state.load(), hr, pos);
     });
 
-    // Real-time DSP & Spectrum callback: processes the audio block directly in the WASAPI render thread (< 10 ms delay!)
-    // Real-time DSP & Spectrum callback: processes the audio block directly in the WASAPI render thread (< 10 ms delay!)
+    // Real-time DSP & Spectrum callback: processes the audio block directly in the WASAPI render thread
     m_renderer.SetDspCallback([this](uint8_t* p_data, UINT32 frames, const WAVEFORMATEXTENSIBLE& wfex) {
         if (!p_data || frames == 0) return;
 
@@ -29,20 +38,17 @@ PlaybackController::PlaybackController()
         const uint32_t channels = wfex.Format.nChannels;
         if (channels == 0) return;
 
-        thread_local std::vector<float> left_buf;
-        thread_local std::vector<float> right_buf;
-        if (left_buf.size() < frames) {
-            left_buf.resize(frames);
-            right_buf.resize(frames);
-        }
+        // Zero-allocation preallocated scratch buffer to prevent audio thread glitches
+        constexpr size_t kMaxScratchFrames = 8192;
+        thread_local float left_buf[kMaxScratchFrames];
+        thread_local float right_buf[kMaxScratchFrames];
+        const UINT32 proc_frames = (frames <= kMaxScratchFrames) ? frames : static_cast<UINT32>(kMaxScratchFrames);
 
-        // Shared mode: 32-bit IEEE float
-        if (wfex.SubFormat == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT ||
-            wfex.Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT ||
-            (wfex.Format.wBitsPerSample == 32 && (wfex.Samples.wValidBitsPerSample == 32 || wfex.Samples.wValidBitsPerSample == 0))) {
+        // Path 1: 32-bit IEEE float (strict tag and subtype checking)
+        if (IsFormatIeeeFloat(wfex)) {
             float* f = reinterpret_cast<float*>(p_data);
             if (channels == 1) {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     float l = f[i];
                     float r = l;
                     if (dsp_active) {
@@ -53,7 +59,7 @@ PlaybackController::PlaybackController()
                     right_buf[i] = r;
                 }
             } else if (channels == 2) {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     if (dsp_active) {
                         m_dsp_graph.ProcessFrame(f[i * 2], f[i * 2 + 1]);
                     }
@@ -61,7 +67,7 @@ PlaybackController::PlaybackController()
                     right_buf[i] = f[i * 2 + 1];
                 }
             } else {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     const size_t base = i * channels;
                     if (dsp_active) {
                         m_dsp_graph.ProcessFrame(f[base], f[base + 1]);
@@ -71,11 +77,11 @@ PlaybackController::PlaybackController()
                 }
             }
         }
-        // Exclusive mode: 24-in-32 container
+        // Path 2: Exclusive mode 24-in-32 container
         else if (wfex.Format.wBitsPerSample == 32 && wfex.Samples.wValidBitsPerSample == 24) {
             int32_t* s = reinterpret_cast<int32_t*>(p_data);
             if (channels == 1) {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     float l = static_cast<float>(s[i] >> 8) / 8388608.0f;
                     float r = l;
                     if (dsp_active) {
@@ -88,7 +94,7 @@ PlaybackController::PlaybackController()
                     right_buf[i] = r;
                 }
             } else if (channels == 2) {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     float l = static_cast<float>(s[i * 2] >> 8) / 8388608.0f;
                     float r = static_cast<float>(s[i * 2 + 1] >> 8) / 8388608.0f;
                     if (dsp_active) {
@@ -102,7 +108,7 @@ PlaybackController::PlaybackController()
                     right_buf[i] = r;
                 }
             } else {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     const size_t base = i * channels;
                     float l = static_cast<float>(s[base] >> 8) / 8388608.0f;
                     float r = static_cast<float>(s[base + 1] >> 8) / 8388608.0f;
@@ -118,11 +124,11 @@ PlaybackController::PlaybackController()
                 }
             }
         }
-        // Exclusive mode: 16-in-32 container
+        // Path 3: Exclusive mode 16-in-32 container
         else if (wfex.Format.wBitsPerSample == 32 && wfex.Samples.wValidBitsPerSample == 16) {
             int32_t* s = reinterpret_cast<int32_t*>(p_data);
             if (channels == 1) {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     float l = static_cast<float>(s[i] >> 16) / 32768.0f;
                     float r = l;
                     if (dsp_active) {
@@ -135,7 +141,7 @@ PlaybackController::PlaybackController()
                     right_buf[i] = r;
                 }
             } else if (channels == 2) {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     float l = static_cast<float>(s[i * 2] >> 16) / 32768.0f;
                     float r = static_cast<float>(s[i * 2 + 1] >> 16) / 32768.0f;
                     if (dsp_active) {
@@ -149,7 +155,7 @@ PlaybackController::PlaybackController()
                     right_buf[i] = r;
                 }
             } else {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     const size_t base = i * channels;
                     float l = static_cast<float>(s[base] >> 16) / 32768.0f;
                     float r = static_cast<float>(s[base + 1] >> 16) / 32768.0f;
@@ -165,10 +171,27 @@ PlaybackController::PlaybackController()
                 }
             }
         }
-        // Exclusive mode: 24-bit packed (3 bytes per sample)
+        // Path 4: True 32-bit integer PCM
+        else if (wfex.Format.wBitsPerSample == 32) {
+            int32_t* s = reinterpret_cast<int32_t*>(p_data);
+            for (UINT32 i = 0; i < proc_frames; ++i) {
+                float l = static_cast<float>(s[i * channels]) / 2147483648.0f;
+                float r = (channels >= 2) ? (static_cast<float>(s[i * channels + 1]) / 2147483648.0f) : l;
+                if (dsp_active) {
+                    m_dsp_graph.ProcessFrame(l, r);
+                    s[i * channels] = static_cast<int32_t>(std::clamp(static_cast<double>(l) * 2147483647.0, -2147483648.0, 2147483647.0));
+                    if (channels >= 2) {
+                        s[i * channels + 1] = static_cast<int32_t>(std::clamp(static_cast<double>(r) * 2147483647.0, -2147483648.0, 2147483647.0));
+                    }
+                }
+                left_buf[i]  = l;
+                right_buf[i] = r;
+            }
+        }
+        // Path 5: Exclusive mode 24-bit packed (3 bytes per sample)
         else if (wfex.Format.wBitsPerSample == 24) {
             const size_t frame_bytes = channels * 3;
-            for (UINT32 i = 0; i < frames; ++i) {
+            for (UINT32 i = 0; i < proc_frames; ++i) {
                 uint8_t* p = p_data + i * frame_bytes;
                 int32_t sl = (int32_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16));
                 if (sl & 0x800000) sl |= 0xFF000000;
@@ -198,11 +221,11 @@ PlaybackController::PlaybackController()
                 right_buf[i] = r;
             }
         }
-        // Exclusive mode: 16-bit packed
+        // Path 6: Exclusive mode 16-bit packed
         else if (wfex.Format.wBitsPerSample == 16) {
             int16_t* s = reinterpret_cast<int16_t*>(p_data);
             if (channels == 1) {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     float l = static_cast<float>(s[i]) / 32768.0f;
                     float r = l;
                     if (dsp_active) {
@@ -214,7 +237,7 @@ PlaybackController::PlaybackController()
                     right_buf[i] = r;
                 }
             } else if (channels == 2) {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     float l = static_cast<float>(s[i * 2]) / 32768.0f;
                     float r = static_cast<float>(s[i * 2 + 1]) / 32768.0f;
                     if (dsp_active) {
@@ -226,7 +249,7 @@ PlaybackController::PlaybackController()
                     right_buf[i] = r;
                 }
             } else {
-                for (UINT32 i = 0; i < frames; ++i) {
+                for (UINT32 i = 0; i < proc_frames; ++i) {
                     const size_t base = i * channels;
                     float l = static_cast<float>(s[base]) / 32768.0f;
                     float r = static_cast<float>(s[base + 1]) / 32768.0f;
@@ -241,7 +264,7 @@ PlaybackController::PlaybackController()
             }
         }
 
-        m_spectrum_analyzer.FeedStereoSamples(left_buf.data(), right_buf.data(), frames);
+        m_spectrum_analyzer.FeedStereoSamples(left_buf, right_buf, proc_frames);
     });
 }
 
@@ -379,12 +402,12 @@ HP_Result PlaybackController::Play() {
     m_renderer.SetBufferGeneration(m_current_gen);
 
     std::wstring err;
-    if (!m_renderer.Start(cfg, err)) {
+    if (!m_renderer.Prepare(cfg, err)) {
         // Fallback: If exclusive mode was requested and failed, try shared mode
         if (m_requested_mode == HP_EXCLUSIVE) {
             cfg.mode = HP_SHARED;
             m_renderer.Stop();
-            if (!m_renderer.Start(cfg, err)) {
+            if (!m_renderer.Prepare(cfg, err)) {
                 FirePlaybackEvent(HP_EVT_ERROR, HP_STATE_STOPPED, m_renderer.GetLastHResult(), 0);
                 return HP_INTERNAL_ERROR;
             }
@@ -415,7 +438,7 @@ HP_Result PlaybackController::Play() {
     m_dsp_graph.SetSampleRate(static_cast<float>(dsp_sample_rate));
     m_spectrum_analyzer.SetSampleRate(static_cast<float>(dsp_sample_rate));
 
-    // Start decoding thread
+    // Seek or prepare decoder position
     std::string seek_err;
     if (m_seek_requested.load()) {
         uint64_t target = m_seek_target.load();
@@ -427,14 +450,34 @@ HP_Result PlaybackController::Play() {
         m_renderer.SetRenderedSamples(0);
     }
 
+    // Launch decoding thread to begin prebuffering PCM
     m_decode_thread = std::thread([this]() {
         this->DecodeThreadProc();
     });
 
-    // Brief pre-roll buffer fill to guarantee hardware stream never underruns on startup
-    for (int i = 0; i < 25; ++i) {
-        if (m_ring_buffer.available_read() > 16384) break;
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    // Frame-aligned prebuffering loop: wait until ~100ms of PCM is buffered before engaging DAC
+    const size_t target_prebuffer_bytes = std::clamp(
+        static_cast<size_t>((static_cast<uint64_t>(dsp_sample_rate) * frame_bytes * 100) / 1000),
+        frame_bytes * 16,
+        m_ring_buffer.capacity() / 2
+    );
+
+    auto prebuffer_start = std::chrono::steady_clock::now();
+    while (!m_decode_stop.load() && m_ring_buffer.available_read() < target_prebuffer_bytes) {
+        if (m_decoder.HasError() || !m_decode_thread.joinable() || m_state.load() == HP_STATE_STOPPED) {
+            break;
+        }
+        if (std::chrono::steady_clock::now() - prebuffer_start > std::chrono::milliseconds(500)) {
+            break; // Timeout safeguard
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+
+    // Engage hardware WASAPI stream render thread
+    if (!m_renderer.StartStream(err)) {
+        FirePlaybackEvent(HP_EVT_ERROR, HP_STATE_STOPPED, m_renderer.GetLastHResult(), 0);
+        Stop();
+        return HP_INTERNAL_ERROR;
     }
 
     UpdateState(HP_STATE_PLAYING);
@@ -719,7 +762,7 @@ void PlaybackController::DecodeThreadProc() {
     });
 
     std::string err;
-    m_decoder.DecodeAll(err);
+    bool decode_ok = m_decoder.DecodeAll(err);
 
     // Wait until the audio renderer has drained all buffered PCM to the hardware DAC
     while (!m_decode_stop.load() && m_ring_buffer.available_read() > 0) {
@@ -727,10 +770,15 @@ void PlaybackController::DecodeThreadProc() {
     }
 
     if (!m_decode_stop.load()) {
-        // Allow hardware DMA buffer (typically 10-50 ms) to finish sounding
-        std::this_thread::sleep_for(std::chrono::milliseconds(60));
-        m_state.store(HP_STATE_STOPPED);
-        FirePlaybackEvent(HP_EVT_TRACK_END, HP_STATE_STOPPED, 0, meta.total_samples);
+        if (!decode_ok || m_decoder.HasError()) {
+            m_state.store(HP_STATE_STOPPED);
+            FirePlaybackEvent(HP_EVT_ERROR, HP_STATE_STOPPED, -1, 0);
+        } else {
+            // Allow hardware DMA buffer (typically 10-50 ms) to finish sounding
+            std::this_thread::sleep_for(std::chrono::milliseconds(60));
+            m_state.store(HP_STATE_STOPPED);
+            FirePlaybackEvent(HP_EVT_TRACK_END, HP_STATE_STOPPED, 0, meta.total_samples);
+        }
     }
 }
 
@@ -746,6 +794,14 @@ void PlaybackController::GetStatus(HP_StatusV1* out) {
         rendered = meta.total_samples;
     }
 
+    // Derive bit-perfect eligibility and PCM passthrough status from active processing state
+    const bool rate_match = (meta.sample_rate == actual_wfex.Format.nSamplesPerSec) && actual_wfex.Format.nSamplesPerSec != 0;
+    const bool bits_match = (meta.bits_per_sample == actual_wfex.Samples.wValidBitsPerSample) && actual_wfex.Samples.wValidBitsPerSample != 0;
+    const bool ch_match = (meta.channels == actual_wfex.Format.nChannels) && actual_wfex.Format.nChannels != 0;
+    const bool decoder_no_errors = !m_decoder.HasError();
+    const bool exclusive_active = (m_state.load() == HP_STATE_STOPPED) ? (m_requested_mode == HP_EXCLUSIVE) : m_renderer.IsExclusive();
+    const bool pcm_pass = exclusive_active && dsp_disabled && !m_resampler.NeedsResampling() && decoder_no_errors;
+
     m_diagnostics.Populate(
         *out,
         m_state.load(),
@@ -758,9 +814,10 @@ void PlaybackController::GetStatus(HP_StatusV1* out) {
         actual_wfex.Format.wBitsPerSample,
         actual_wfex.Format.nChannels,
         m_actual_mode,
-        !m_decoder.HasError(),
-        m_renderer.IsExclusive(),
+        decoder_no_errors,
+        exclusive_active,
         dsp_disabled,
+        pcm_pass,
         rendered,
         m_renderer.GetUnderrunCount(),
         m_renderer.GetLastHResult(),

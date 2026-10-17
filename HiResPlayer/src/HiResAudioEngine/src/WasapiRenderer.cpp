@@ -24,9 +24,10 @@ WasapiRenderer::~WasapiRenderer() {
     }
 }
 
-bool WasapiRenderer::Start(const RendererConfig& cfg, std::wstring& error_out) {
+bool WasapiRenderer::Prepare(const RendererConfig& cfg, std::wstring& error_out) {
     if (m_running.load()) { Stop(); }
     if (!cfg.ring_buffer) { error_out = L"No ring buffer provided"; return false; }
+    if (!m_device) { error_out = L"IMMDevice not set"; return false; }
 
     m_ring = cfg.ring_buffer;
     m_is_exclusive = (cfg.mode == HP_EXCLUSIVE);
@@ -37,15 +38,20 @@ bool WasapiRenderer::Start(const RendererConfig& cfg, std::wstring& error_out) {
     m_flushing.store(false);
     m_rendered_samples.store(0);
     m_underruns.store(0);
+    m_full_underruns.store(0);
+    m_partial_underruns.store(0);
+    m_underrun_frames.store(0);
     m_last_hresult.store(0);
     m_buffer_gen.store(m_ring ? m_ring->get_read_gen() : 0, std::memory_order_release);
 
-    if (!m_device) { error_out = L"IMMDevice not set"; return false; }
-
-    UINT32 buffer_frames = 0;
+    if (m_buffer_event) {
+        CloseHandle(m_buffer_event);
+        m_buffer_event = nullptr;
+    }
     m_buffer_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     if (!m_buffer_event) { error_out = L"CreateEvent failed"; return false; }
 
+    UINT32 buffer_frames = 0;
     bool ok;
     if (m_is_exclusive) {
         ok = InitializeExclusive(m_device, cfg, buffer_frames, m_buffer_event);
@@ -54,7 +60,8 @@ bool WasapiRenderer::Start(const RendererConfig& cfg, std::wstring& error_out) {
     }
     if (!ok) {
         error_out = m_last_error;
-        CloseHandle(m_buffer_event); m_buffer_event = nullptr;
+        CloseHandle(m_buffer_event);
+        m_buffer_event = nullptr;
         return false;
     }
 
@@ -69,17 +76,57 @@ bool WasapiRenderer::Start(const RendererConfig& cfg, std::wstring& error_out) {
         return false;
     }
 
-    // Pre-roll WASAPI buffer with silence before starting hardware DMA
-    if (buffer_frames > 0) {
+    m_prepared_buffer_frames = buffer_frames;
+    m_is_prepared.store(true, std::memory_order_release);
+    return true;
+}
+
+bool WasapiRenderer::StartStream(std::wstring& error_out) {
+    if (!m_is_prepared.load(std::memory_order_acquire) || !m_audio_client || !m_render_client) {
+        error_out = L"Renderer not prepared for streaming";
+        return false;
+    }
+    if (m_running.load()) {
+        return true;
+    }
+
+    // Pre-roll hardware buffer before starting hardware DMA:
+    // If ring buffer already contains pre-buffered audio, send it directly!
+    // Otherwise pad with silence so the hardware DAC ramps smoothly without clicks.
+    if (m_prepared_buffer_frames > 0) {
         BYTE* p_pre = nullptr;
-        hr = m_render_client->GetBuffer(buffer_frames, &p_pre);
+        HRESULT hr = m_render_client->GetBuffer(m_prepared_buffer_frames, &p_pre);
         if (SUCCEEDED(hr) && p_pre) {
-            std::memset(p_pre, 0, (size_t)buffer_frames * m_bytes_per_frame);
-            m_render_client->ReleaseBuffer(buffer_frames, 0);
+            size_t bytes_needed = static_cast<size_t>(m_prepared_buffer_frames) * m_bytes_per_frame;
+            uint64_t gen = m_buffer_gen.load(std::memory_order_acquire);
+            size_t read = m_ring ? m_ring->read(p_pre, bytes_needed, gen) : 0;
+            DWORD flags = 0;
+            if (read == 0) {
+                flags = AUDCLNT_BUFFERFLAGS_SILENT;
+                std::memset(p_pre, 0, bytes_needed);
+            } else if (read < bytes_needed) {
+                std::memset(p_pre + read, 0, bytes_needed - read);
+            }
+            if (read > 0 && m_dsp_cb) {
+                m_dsp_cb(p_pre, m_prepared_buffer_frames, m_actual_wfex);
+            }
+            m_render_client->ReleaseBuffer(m_prepared_buffer_frames, flags);
+
+            if (read > 0) {
+                const UINT32 consumed_frames = static_cast<UINT32>(read / m_bytes_per_frame);
+                if (m_source_rate > 0 && m_output_rate > 0) {
+                    m_source_sample_accum += static_cast<uint64_t>(consumed_frames) * m_source_rate;
+                    uint64_t adv = m_source_sample_accum / m_output_rate;
+                    m_source_sample_accum %= m_output_rate;
+                    m_rendered_samples.fetch_add(adv, std::memory_order_release);
+                } else {
+                    m_rendered_samples.fetch_add(consumed_frames, std::memory_order_release);
+                }
+            }
         }
     }
 
-    hr = m_audio_client->Start();
+    HRESULT hr = m_audio_client->Start();
     if (FAILED(hr)) {
         error_out = L"IAudioClient::Start failed";
         m_last_hresult.store((int32_t)hr);
@@ -88,11 +135,17 @@ bool WasapiRenderer::Start(const RendererConfig& cfg, std::wstring& error_out) {
     }
 
     m_running.store(true);
+    UINT32 buffer_frames = m_prepared_buffer_frames;
     m_render_thread = std::thread([this, buffer_frames]() {
         this->RenderThreadProc();
     });
 
     return true;
+}
+
+bool WasapiRenderer::Start(const RendererConfig& cfg, std::wstring& error_out) {
+    if (!Prepare(cfg, error_out)) return false;
+    return StartStream(error_out);
 }
 
 void WasapiRenderer::Stop() {
@@ -122,6 +175,7 @@ void WasapiRenderer::Stop() {
         m_buffer_event = nullptr;
     }
     m_running.store(false);
+    m_is_prepared.store(false, std::memory_order_release);
 }
 
 bool WasapiRenderer::InitializeShared(
@@ -158,15 +212,33 @@ bool WasapiRenderer::InitializeShared(
     }
 
     // Check if standard stereo float32 is supported at the device's mix sample rate
+    // Note: WASAPI shared mode contract requires non-null ppClosestMatch output pointer
     WAVEFORMATEXTENSIBLE stereo_wfex = AudioFormatNegotiator::BuildSharedFloat32Format(pMixFmt->nSamplesPerSec, 2);
     WAVEFORMATEX* pFormatToUse = pMixFmt;
+    WAVEFORMATEX* pClosestMatch = nullptr;
     HRESULT hr_stereo = m_audio_client->IsFormatSupported(
         AUDCLNT_SHAREMODE_SHARED,
         reinterpret_cast<WAVEFORMATEX*>(&stereo_wfex),
-        nullptr
+        &pClosestMatch
     );
-    if (SUCCEEDED(hr_stereo)) {
+
+    if (hr_stereo == S_OK) {
+        // Exact requested stereo float32 format is fully supported
         pFormatToUse = reinterpret_cast<WAVEFORMATEX*>(&stereo_wfex);
+    } else if (hr_stereo == S_FALSE && pClosestMatch != nullptr) {
+        // Driver suggested closest match
+        pFormatToUse = pClosestMatch;
+    } else {
+        // Fall back to device native mix format
+        pFormatToUse = pMixFmt;
+    }
+
+    // Validate negotiated format parameters
+    if (!pFormatToUse || pFormatToUse->nChannels == 0 || pFormatToUse->nSamplesPerSec == 0 || pFormatToUse->nBlockAlign == 0) {
+        m_last_error = L"Invalid audio format negotiated for Shared mode";
+        if (pClosestMatch) CoTaskMemFree(pClosestMatch);
+        CoTaskMemFree(pMixFmt);
+        return false;
     }
 
     // Record actual output format
@@ -188,7 +260,13 @@ bool WasapiRenderer::InitializeShared(
         pFormatToUse,
         nullptr
     );
+
+    if (pClosestMatch) {
+        CoTaskMemFree(pClosestMatch);
+        pClosestMatch = nullptr;
+    }
     CoTaskMemFree(pMixFmt);
+    pMixFmt = nullptr;
 
     if (FAILED(hr)) {
         m_last_error = L"IAudioClient::Initialize (shared) failed";
@@ -387,11 +465,25 @@ void WasapiRenderer::RenderThreadProc() {
 
         DWORD flags = 0;
         if (read == 0) {
+            // Full starvation: buffer was completely empty or generation mismatch
             flags = AUDCLNT_BUFFERFLAGS_SILENT;
             m_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_full_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_underrun_frames.fetch_add(frames_avail, std::memory_order_relaxed);
             if (m_event_cb) m_event_cb(HP_EVT_UNDERRUN, 0, m_rendered_samples.load());
+        } else if (read < bytes_needed) {
+            // Partial starvation: buffer had some frames, but ran dry before completing the block
+            // PcmRingBuffer already padded the remainder of p_data with silence
+            m_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_partial_underruns.fetch_add(1, std::memory_order_relaxed);
+            const UINT32 missing_frames = frames_avail - static_cast<UINT32>(read / m_bytes_per_frame);
+            m_underrun_frames.fetch_add(missing_frames, std::memory_order_relaxed);
+            if (m_event_cb) m_event_cb(HP_EVT_UNDERRUN, 0, m_rendered_samples.load());
+            if (m_dsp_cb) {
+                m_dsp_cb(p_data, frames_avail, m_actual_wfex);
+            }
         } else if (m_dsp_cb) {
-            // Apply DSP directly to the block being sent to WASAPI hardware (< 10 ms delay!)
+            // Full block available
             m_dsp_cb(p_data, frames_avail, m_actual_wfex);
         }
 

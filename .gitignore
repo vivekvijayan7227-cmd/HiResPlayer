@@ -62,6 +62,7 @@ HiResPlayer/assets/payload.zip
 *.dll
 
 # Allow required test runtime support libraries
+!HiResPlayer/tests/HiResAudioEngine.dll
 !HiResPlayer/tests/libc++.dll
 !HiResPlayer/tests/libunwind.dll
 

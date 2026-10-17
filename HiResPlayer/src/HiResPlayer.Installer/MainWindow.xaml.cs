@@ -149,17 +149,27 @@ namespace HiResPlayer.Installer
             int totalEntries = archive.Entries.Count;
             int extracted = 0;
 
+            string canonicalTarget = Path.GetFullPath(targetDir);
+            if (!canonicalTarget.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                canonicalTarget += Path.DirectorySeparatorChar;
+            }
+
             foreach (var entry in archive.Entries)
             {
-                if (string.IsNullOrEmpty(entry.Name) && entry.FullName.EndsWith("/"))
+                string destinationPath = Path.GetFullPath(Path.Combine(targetDir, entry.FullName));
+                if (!destinationPath.StartsWith(canonicalTarget, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new System.Security.SecurityException($"Zip slip vulnerability detected: entry '{entry.FullName}' targets outside '{targetDir}'");
+                }
+
+                if (string.IsNullOrEmpty(entry.Name) && (entry.FullName.EndsWith("/") || entry.FullName.EndsWith("\\")))
                 {
                     // Directory entry
-                    string dirPath = Path.Combine(targetDir, entry.FullName);
-                    Directory.CreateDirectory(dirPath);
+                    Directory.CreateDirectory(destinationPath);
                     continue;
                 }
 
-                string destinationPath = Path.Combine(targetDir, entry.FullName);
                 string? parentDir = Path.GetDirectoryName(destinationPath);
                 if (parentDir != null) Directory.CreateDirectory(parentDir);
 

@@ -90,13 +90,13 @@
 ## Download & Installation
 
 ### Option 1: Standalone Single-File Setup (Recommended)
-Download the latest `HiResPlayer-Setup-v1.0.0.exe` from the [Releases](https://github.com/vivekvijayan7227-cmd/HiResPlayer/releases) page:
-1. Run `HiResPlayer-Setup-v1.0.0.exe`.
+Download the latest `HiResPlayer-Setup-v1.0.1.exe` from the [Releases](https://github.com/vivekvijayan7227-cmd/HiResPlayer/releases) page:
+1. Run `HiResPlayer-Setup-v1.0.1.exe`.
 2. Follow the setup wizard to choose an installation directory.
 3. Launch from the desktop shortcut or Start Menu.
 
 ### Option 2: Portable Distribution
-1. Download `HiResPlayer-win-x64-v1.0.0.zip` from Releases.
+1. Download `HiResPlayer-win-x64-v1.0.1.zip` from Releases.
 2. Extract to any directory.
 3. Run `HiResPlayer.Desktop.exe`.
 
@@ -126,7 +126,19 @@ Download the latest `HiResPlayer-Setup-v1.0.0.exe` from the [Releases](https://g
 .\HiResPlayer\scripts\build_installer.ps1
 ```
 
-Outputs will be placed into `dist/HiResPlayer-win-x64` and `Installer/HiResPlayer-Setup-v1.0.0.exe`.
+Outputs will be placed into `dist/HiResPlayer-win-x64` and `Installer/HiResPlayer-Setup-v1.0.1.exe`.
+
+---
+
+## Engineering Quality & Verification
+
+HiResPlayer v1.0.1 incorporates extensive native engine hardening and architectural verification:
+- **WASAPI Format Negotiation:** Exact vs. closest-match negotiation with `IsFormatSupported(..., &pClosestMatch)`, preventing unexpected format fallbacks.
+- **Prebuffered Startup:** Decoupled buffer preparation (`Prepare`) from hardware DAC clock start (`StartStream`), ensuring ~100ms PCM prebuffering to eliminate initial click/pop artifacts.
+- **Diagnostic Precision:** Granular tracking of full and partial ring buffer underruns, frame starvation counts, and dynamic bit-perfect validation (`pcm_pass`).
+- **Wait-Free Spectrum Synchronization:** Lock-free double-buffered sequence lock (`seqlock`) eliminating render thread contention during FFT snapshot generation.
+- **Security Hardening:** Installer verified against Zip Slip path traversal vulnerabilities.
+- **Automated Verification:** 40 / 40 passing managed unit & integration tests covering golden-reference PCM fidelity, rapid seek continuity, natural track replay, and format preservation.
 
 ---
 

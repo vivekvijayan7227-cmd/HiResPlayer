@@ -24,4 +24,19 @@
     <ProjectReference Include="..\..\src\HiResPlayer.Infrastructure\HiResPlayer.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Condition="Exists('..\HiResAudioEngine.dll')" Include="..\HiResAudioEngine.dll" Link="HiResAudioEngine.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Condition="!Exists('..\HiResAudioEngine.dll') And Exists('..\..\src\HiResAudioEngine\build\HiResAudioEngine.dll')" Include="..\..\src\HiResAudioEngine\build\HiResAudioEngine.dll" Link="HiResAudioEngine.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\libc++.dll" Link="libc++.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\libunwind.dll" Link="libunwind.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

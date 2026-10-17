@@ -109,6 +109,7 @@ Write-Host "Copying HiResAudioEngine.dll to target locations..." -ForegroundColo
 $targets = @(
     (Join-Path $RepoRoot "tests\HiResAudioEngine.dll"),
     (Join-Path $RepoRoot "tests\ManagedTests\bin\Debug\net10.0-windows\HiResAudioEngine.dll"),
+    (Join-Path $RepoRoot "tests\ManagedTests\bin\Release\net10.0-windows\HiResAudioEngine.dll"),
     (Join-Path $RepoRoot "src\HiResPlayer.Desktop\bin\Release\net10.0-windows\win-x64\HiResAudioEngine.dll"),
     (Join-Path $RepoRoot "dist\HiResPlayer-win-x64\HiResAudioEngine.dll")
 )

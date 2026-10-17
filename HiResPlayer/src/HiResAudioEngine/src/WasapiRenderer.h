@@ -39,7 +39,13 @@ public:
     WasapiRenderer();
     ~WasapiRenderer();
 
-    // Initialize and start rendering. Returns false on failure.
+    // Decoupled preparation: probes/initializes audio client, negotiates format, gets buffer client
+    bool Prepare(const RendererConfig& cfg, std::wstring& error_out);
+
+    // Starts audio stream DMA rendering after prebuffering is complete
+    bool StartStream(std::wstring& error_out);
+
+    // Initialize and start rendering (calls Prepare + StartStream). Returns false on failure.
     bool Start(const RendererConfig& cfg, std::wstring& error_out);
 
     // Stop render thread and release WASAPI resources.
@@ -53,6 +59,7 @@ public:
     bool IsPaused() const       { return m_paused.load(std::memory_order_acquire); }
 
     bool IsRunning() const { return m_running.load(std::memory_order_acquire); }
+    bool IsPrepared() const { return m_is_prepared; }
 
     // Current render position in source samples (per channel)
     uint64_t GetRenderedSamples() const {
@@ -63,12 +70,26 @@ public:
         return m_underruns.load(std::memory_order_acquire);
     }
 
+    uint64_t GetFullUnderrunCount() const {
+        return m_full_underruns.load(std::memory_order_acquire);
+    }
+
+    uint64_t GetPartialUnderrunCount() const {
+        return m_partial_underruns.load(std::memory_order_acquire);
+    }
+
+    uint64_t GetUnderrunFrames() const {
+        return m_underrun_frames.load(std::memory_order_acquire);
+    }
+
     int32_t GetLastHResult() const {
         return m_last_hresult.load(std::memory_order_acquire);
     }
 
     // Actual negotiated output format
     WAVEFORMATEXTENSIBLE GetActualFormat() const { return m_actual_wfex; }
+    uint32_t GetOutputRate() const { return m_output_rate; }
+    uint32_t GetBytesPerFrame() const { return m_bytes_per_frame; }
     bool IsExclusive() const { return m_is_exclusive; }
 
     void SetEventCallback(RendererEventCb cb) { m_event_cb = std::move(cb); }
@@ -102,7 +123,12 @@ private:
     std::atomic<bool>   m_stop_req {false};
     std::atomic<uint64_t> m_rendered_samples {0};
     std::atomic<uint64_t> m_underruns        {0};
+    std::atomic<uint64_t> m_full_underruns   {0};
+    std::atomic<uint64_t> m_partial_underruns{0};
+    std::atomic<uint64_t> m_underrun_frames  {0};
     std::atomic<int32_t>  m_last_hresult     {0};
+    std::atomic<bool>     m_is_prepared      {false};
+    UINT32                m_prepared_buffer_frames = 0;
 
     std::mutex           m_render_mutex;
     std::atomic<bool>    m_flushing { false };

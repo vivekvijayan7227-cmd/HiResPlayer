@@ -30,7 +30,7 @@
                             <TextBlock Text="100% Non-AI Certified" Foreground="{StaticResource AccentGreenBrush}" FontSize="10" FontWeight="SemiBold"/>
                         </StackPanel>
                     </Border>
-                    <TextBlock Text="Release: v1.0.0-lts (Win64)" Foreground="{StaticResource TextMutedBrush}"
+                    <TextBlock Text="Release: v1.0.1 (Win64)" Foreground="{StaticResource TextMutedBrush}"
                                FontSize="10" HorizontalAlignment="Right"/>
                 </StackPanel>
 

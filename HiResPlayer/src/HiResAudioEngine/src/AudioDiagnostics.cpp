@@ -13,6 +13,7 @@ void AudioDiagnostics::Populate(
     bool     decoder_no_errors,
     bool     exclusive_active,
     bool     dsp_disabled,
+    bool     pcm_passthrough,
     uint64_t rendered_samples,
     uint64_t underruns,
     int32_t  last_hresult,
@@ -33,11 +34,11 @@ void AudioDiagnostics::Populate(
     out.underrun_count        = underruns;
     out.last_hresult          = last_hresult;
 
-    // Evaluate all 7 bit-perfect conditions
+    // Evaluate all 7 bit-perfect conditions dynamically
     bool rate_match    = (source_rate == output_rate) && output_rate != 0;
     bool bits_match    = (source_valid_bits == output_valid_bits) && output_valid_bits != 0;
     bool ch_match      = (source_channels == output_channels) && output_channels != 0;
-    bool pcm_pass      = true; // always true in our exclusive path (no DSP)
+    bool pcm_pass      = pcm_passthrough;
 
     out.bp_no_decoder_errors  = decoder_no_errors ? 1 : 0;
     out.bp_rate_match         = rate_match ? 1 : 0;

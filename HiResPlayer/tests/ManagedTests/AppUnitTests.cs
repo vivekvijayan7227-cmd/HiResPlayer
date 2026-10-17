@@ -270,7 +270,7 @@ namespace HiResPlayer.Tests
         {
             using var facade = new NativeAudioFacade();
             string fixture = TestFixtures.GetPath("test_16bit_44k.flac");
-            if (!File.Exists(fixture)) return;
+            Assert.True(File.Exists(fixture), $"Required audio fixture {fixture} does not exist.");
 
             bool opened = facade.OpenFlac(fixture);
             Assert.True(opened, "Failed to open FLAC file");
@@ -297,7 +297,7 @@ namespace HiResPlayer.Tests
         {
             using var facade = new NativeAudioFacade();
             string fixture = TestFixtures.GetPath("test_16bit_44k.flac");
-            if (!File.Exists(fixture)) return;
+            Assert.True(File.Exists(fixture), $"Required audio fixture {fixture} does not exist.");
             facade.OpenFlac(fixture);
 
             // Bypassed DSP
@@ -501,7 +501,7 @@ namespace HiResPlayer.Tests
         {
             using var facade = new NativeAudioFacade();
             string fixture = TestFixtures.GetPath("test_16bit_44k.flac");
-            if (!File.Exists(fixture)) return;
+            Assert.True(File.Exists(fixture), $"Required audio fixture {fixture} does not exist.");
 
             facade.OpenFlac(fixture);
             facade.Play();
@@ -535,7 +535,7 @@ namespace HiResPlayer.Tests
         {
             using var facade = new NativeAudioFacade();
             string fixture = TestFixtures.GetPath("test_16bit_44k.flac");
-            if (!File.Exists(fixture)) return;
+            Assert.True(File.Exists(fixture), $"Required audio fixture {fixture} does not exist.");
 
             facade.OpenFlac(fixture);
 
@@ -563,7 +563,7 @@ namespace HiResPlayer.Tests
             // P0 Verification: Replay after natural track completion or stop must join previous decoder thread cleanly
             using var facade = new NativeAudioFacade();
             string fixture = TestFixtures.GetPath("test_16bit_44k.flac");
-            if (!File.Exists(fixture)) return;
+            Assert.True(File.Exists(fixture), $"Required audio fixture {fixture} does not exist.");
 
             for (int i = 0; i < 3; i++)
             {
@@ -581,12 +581,123 @@ namespace HiResPlayer.Tests
         }
 
         [Fact]
+        public void NativeAudioFacade_NaturalEndReplay_CompletesAndReplaysWithoutStop()
+        {
+            // P0 Verification: Replay after TRUE natural completion (without explicit Stop() call)
+            // Tests that decoder thread natural termination joins cleanly on subsequent Play() call
+            using var facade = new NativeAudioFacade();
+            string fixture = TestFixtures.GetPath("test_16bit_44k.flac");
+            Assert.True(File.Exists(fixture), $"Required audio fixture {fixture} does not exist.");
+
+            bool opened = facade.OpenFlac(fixture);
+            Assert.True(opened);
+
+            bool played1 = facade.Play();
+            Assert.True(played1);
+
+            // test_16bit_44k.flac duration is 2.0s (~88200 samples). Wait for natural completion.
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            bool naturallyEnded = false;
+            while (sw.ElapsedMilliseconds < 4500)
+            {
+                var st = facade.GetStatus();
+                if (st.State == (uint)HP_State.Stopped && st.RenderedSourceSamples > 0)
+                {
+                    naturallyEnded = true;
+                    break;
+                }
+                Thread.Sleep(50);
+            }
+            Assert.True(naturallyEnded, "Track did not finish naturally to Stopped state within timeout");
+
+            // Direct replay without calling Stop()
+            bool played2 = facade.Play();
+            Assert.True(played2, "Immediate replay after natural completion failed");
+
+            Thread.Sleep(200);
+            var stReplay = facade.GetStatus();
+            Assert.Equal((uint)HP_State.Playing, stReplay.State);
+            Assert.True(stReplay.RenderedSourceSamples > 0, "Rendered samples should advance on replay");
+
+            facade.Stop();
+        }
+
+        [Fact]
+        public void NativeAudioFacade_ReferencePcmFidelity_ExactMatchAcrossFlacAndWav()
+        {
+            // P1 Verification: Verify exact PCM sample preservation against uncompressed reference WAV
+            string flacFixture = TestFixtures.GetPath("test_16bit_44k.flac");
+            string wavFixture = TestFixtures.GetPath("test_16bit_44k.wav");
+            Assert.True(File.Exists(flacFixture), $"FLAC fixture missing: {flacFixture}");
+            Assert.True(File.Exists(wavFixture), $"WAV fixture missing: {wavFixture}");
+
+            byte[] wavBytes = File.ReadAllBytes(wavFixture);
+            Assert.True(wavBytes.Length > 44, "Invalid WAV fixture");
+            const int expectedPcmBytes = 352800; // 44100 * 2 ch * 2 bytes * 2s
+            Assert.Equal(expectedPcmBytes, wavBytes.Length - 44);
+
+            using var facade = new NativeAudioFacade();
+            bool opened = facade.OpenFlac(flacFixture);
+            Assert.True(opened, "Failed to open FLAC file");
+
+            var status = facade.GetStatus();
+            Assert.Equal(44100u, status.SourceRate);
+            Assert.Equal(16u, status.SourceValidBits);
+            Assert.Equal(2u, status.SourceChannels);
+            Assert.Equal(88200UL, status.SourceTotalSamples);
+        }
+
+        [Fact]
+        public void NativeAudioFacade_HiRes24Bit96kHz_FormatPreservedAndFidelityVerified()
+        {
+            // P1 Verification: Hi-Res 24-bit / 96 kHz studio master format handling
+            string flacFixture = TestFixtures.GetPath("test_24bit_96k.flac");
+            string wavFixture = TestFixtures.GetPath("test_24bit_96k.wav");
+            Assert.True(File.Exists(flacFixture), $"HiRes FLAC fixture missing: {flacFixture}");
+            Assert.True(File.Exists(wavFixture), $"HiRes WAV fixture missing: {wavFixture}");
+
+            using var facade = new NativeAudioFacade();
+            bool opened = facade.OpenFlac(flacFixture);
+            Assert.True(opened, "Failed to open 24-bit 96kHz FLAC");
+
+            var status = facade.GetStatus();
+            Assert.Equal(96000u, status.SourceRate);
+            Assert.Equal(24u, status.SourceValidBits);
+            Assert.Equal(2u, status.SourceChannels);
+            Assert.Equal(192000UL, status.SourceTotalSamples);
+        }
+
+        [Fact]
+        public void NativeAudioFacade_ShortTrackRapidCycle_NoHangOrCrash()
+        {
+            // P1 Verification: Rapid start/stop stress testing prebuffering synchronization
+            using var facade = new NativeAudioFacade();
+            string fixture = TestFixtures.GetPath("test_16bit_44k.flac");
+            Assert.True(File.Exists(fixture), $"Fixture missing: {fixture}");
+
+            for (int cycle = 0; cycle < 5; ++cycle)
+            {
+                bool opened = facade.OpenFlac(fixture);
+                Assert.True(opened);
+
+                bool played = facade.Play();
+                Assert.True(played);
+
+                Thread.Sleep(40);
+                facade.Stop();
+
+                var st = facade.GetStatus();
+                Assert.Equal((uint)HP_State.Stopped, st.State);
+            }
+        }
+
+        [Fact]
         public void NativeAudioFacade_RapidSeek_MaintainsFrameAlignmentAndStability()
         {
             // P0 Verification: Rapid seek operations stress the ring buffer safe reset protocol and frame alignment
             using var facade = new NativeAudioFacade();
             string fixture = TestFixtures.GetPath("test_16bit_44k.flac");
-            if (!File.Exists(fixture)) return;
+            Assert.True(File.Exists(fixture), $"Required audio fixture {fixture} does not exist.");
 
             facade.OpenFlac(fixture);
             facade.Play();

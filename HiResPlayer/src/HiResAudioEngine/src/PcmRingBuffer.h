@@ -125,6 +125,8 @@ public:
         const size_t avail = available_read();
         if (avail == 0) {
             m_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_full_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_underrun_frames.fetch_add(bytes / fsize, std::memory_order_relaxed);
             std::memset(out, 0, bytes);
             return 0;
         }
@@ -132,6 +134,9 @@ public:
         size_t to_read = (avail < bytes) ? avail : bytes;
         to_read = (to_read / fsize) * fsize;
         if (to_read == 0) {
+            m_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_full_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_underrun_frames.fetch_add(bytes / fsize, std::memory_order_relaxed);
             std::memset(out, 0, bytes);
             return 0;
         }
@@ -145,9 +150,12 @@ public:
             std::memcpy(out + first, m_buf.data(), to_read - first);
         }
 
-        // Pad remainder with silence if buffer did not have all requested bytes
+        // Pad remainder with silence if buffer did not have all requested bytes (partial underrun)
         if (to_read < bytes) {
             std::memset(out + to_read, 0, bytes - to_read);
+            m_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_partial_underruns.fetch_add(1, std::memory_order_relaxed);
+            m_underrun_frames.fetch_add((bytes - to_read) / fsize, std::memory_order_relaxed);
         }
 
         m_read_pos.store((r + to_read) % cap, std::memory_order_release);
@@ -179,6 +187,15 @@ public:
     }
 
     uint64_t underruns() const noexcept { return m_underruns.load(std::memory_order_relaxed); }
+    uint64_t full_underruns() const noexcept { return m_full_underruns.load(std::memory_order_relaxed); }
+    uint64_t partial_underruns() const noexcept { return m_partial_underruns.load(std::memory_order_relaxed); }
+    uint64_t underrun_frames() const noexcept { return m_underrun_frames.load(std::memory_order_relaxed); }
+    void reset_underruns() noexcept {
+        m_underruns.store(0, std::memory_order_relaxed);
+        m_full_underruns.store(0, std::memory_order_relaxed);
+        m_partial_underruns.store(0, std::memory_order_relaxed);
+        m_underrun_frames.store(0, std::memory_order_relaxed);
+    }
     size_t capacity() const noexcept { return m_usable_capacity.load(std::memory_order_relaxed); }
     uint64_t get_read_gen() const noexcept { return m_read_gen.load(std::memory_order_acquire); }
     uint64_t get_write_gen() const noexcept { return m_write_gen.load(std::memory_order_acquire); }
@@ -202,6 +219,9 @@ private:
     std::atomic<uint64_t>     m_write_gen;
     std::atomic<uint64_t>     m_read_gen;
     std::atomic<uint64_t>     m_underruns;
+    std::atomic<uint64_t>     m_full_underruns{0};
+    std::atomic<uint64_t>     m_partial_underruns{0};
+    std::atomic<uint64_t>     m_underrun_frames{0};
     std::atomic<int32_t>      m_active_readers;
     std::atomic<int32_t>      m_active_writers;
 };

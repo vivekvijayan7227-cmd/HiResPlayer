@@ -84,7 +84,7 @@ Copy-Item $fixtureGlob -Destination $SampleDir -Force -ErrorAction SilentlyConti
 # 6. Documentation
 $DocContent = @"
 ================================================================================
- HiResPlayer v1.0.0 — Audiophile Bit-Perfect FLAC Player & Acoustic Studio
+ HiResPlayer v1.0.1 — Audiophile Bit-Perfect FLAC Player & Acoustic Studio
 ================================================================================
 
 Quick Start:

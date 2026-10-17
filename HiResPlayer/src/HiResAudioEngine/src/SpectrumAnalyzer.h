@@ -20,8 +20,11 @@ public:
     static constexpr size_t RING_SIZE = 4096;
 
     SpectrumAnalyzer()
-        : m_ring(RING_SIZE, 0.0f), m_write_pos(0), m_sample_rate(44100.0f)
+        : m_ring(RING_SIZE, 0.0f), m_write_pos(0), m_sample_rate(44100.0f), m_active_buf(0)
     {
+        std::memset(m_snapshot, 0, sizeof(m_snapshot));
+        m_seq[0].store(0, std::memory_order_relaxed);
+        m_seq[1].store(0, std::memory_order_relaxed);
         m_hann.resize(FFT_SIZE);
         for (size_t i = 0; i < FFT_SIZE; ++i) {
             m_hann[i] = 0.5f * (1.0f - std::cos(2.0f * 3.14159265358979323846f * i / (FFT_SIZE - 1)));
@@ -54,6 +57,19 @@ public:
         }
         m_write_pos.store(wp, std::memory_order_release);
 
+        // Publish consistent FFT snapshot to non-active double buffer using sequence lock (wait-free for render thread)
+        uint32_t next_buf = 1 - m_active_buf.load(std::memory_order_relaxed);
+        uint32_t s = m_seq[next_buf].load(std::memory_order_relaxed);
+        m_seq[next_buf].store(s + 1, std::memory_order_release); // odd = writing
+
+        size_t start = (wp + RING_SIZE - FFT_SIZE) % RING_SIZE;
+        for (size_t i = 0; i < FFT_SIZE; ++i) {
+            m_snapshot[next_buf][i] = m_ring[(start + i) % RING_SIZE];
+        }
+
+        m_seq[next_buf].store(s + 2, std::memory_order_release); // even = ready
+        m_active_buf.store(next_buf, std::memory_order_release);
+
         // Compute normalized Pearson cross-correlation r in [-1.0, +1.0]
         double denom = std::sqrt(s_ll * s_rr);
         float r_block = (denom > 1e-9) ? static_cast<float>(std::clamp(s_lr / denom, -1.0, 1.0)) : 1.0f;
@@ -72,26 +88,57 @@ public:
             wp = (wp + 1) % RING_SIZE;
         }
         m_write_pos.store(wp, std::memory_order_release);
+
+        uint32_t next_buf = 1 - m_active_buf.load(std::memory_order_relaxed);
+        uint32_t s = m_seq[next_buf].load(std::memory_order_relaxed);
+        m_seq[next_buf].store(s + 1, std::memory_order_release);
+
+        size_t start = (wp + RING_SIZE - FFT_SIZE) % RING_SIZE;
+        for (size_t i = 0; i < FFT_SIZE; ++i) {
+            m_snapshot[next_buf][i] = m_ring[(start + i) % RING_SIZE];
+        }
+
+        m_seq[next_buf].store(s + 2, std::memory_order_release);
+        m_active_buf.store(next_buf, std::memory_order_release);
     }
 
     float GetStereoCorrelation() const noexcept {
         return m_correlation.load(std::memory_order_relaxed);
     }
 
-    // Called on UI thread via hp_dsp_get_spectrum
+    // Called on UI thread via hp_dsp_get_spectrum — race-free snapshot reader
     void GetBands(float* out_bands, uint32_t band_count) noexcept {
         if (!out_bands || band_count == 0) return;
         if (band_count > 64) band_count = 64;
 
+        float snapshot_copy[FFT_SIZE];
+        bool snapshot_ok = false;
+        for (int retry = 0; retry < 3; ++retry) {
+            uint32_t buf = m_active_buf.load(std::memory_order_acquire);
+            uint32_t seq1 = m_seq[buf].load(std::memory_order_acquire);
+            if (seq1 & 1) {
+                continue; // Writer active on this buffer
+            }
+            std::memcpy(snapshot_copy, m_snapshot[buf], sizeof(snapshot_copy));
+            uint32_t seq2 = m_seq[buf].load(std::memory_order_acquire);
+            if (seq1 == seq2) {
+                snapshot_ok = true;
+                break;
+            }
+        }
+        if (!snapshot_ok) {
+            for (uint32_t b = 0; b < band_count; ++b) {
+                out_bands[b] = m_smoothed_bands[b];
+            }
+            return;
+        }
+
         float in_real[FFT_SIZE];
         float in_imag[FFT_SIZE];
 
-        size_t wp = m_write_pos.load(std::memory_order_acquire);
-        size_t start = (wp + RING_SIZE - FFT_SIZE) % RING_SIZE;
-
         double sum_energy = 0.0;
         for (size_t i = 0; i < FFT_SIZE; ++i) {
-            float s = m_ring[(start + i) % RING_SIZE];
+            float s = snapshot_copy[i];
             sum_energy += s * s;
             in_real[i] = s * m_hann[i];
             in_imag[i] = 0.0f;
@@ -202,4 +249,7 @@ private:
     std::atomic<float> m_correlation{1.0f};
     std::vector<float> m_hann;
     std::vector<float> m_smoothed_bands;
+    float m_snapshot[2][FFT_SIZE];
+    std::atomic<uint32_t> m_active_buf{0};
+    std::atomic<uint32_t> m_seq[2];
 };

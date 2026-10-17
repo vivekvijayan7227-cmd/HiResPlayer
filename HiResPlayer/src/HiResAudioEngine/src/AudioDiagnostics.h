@@ -17,6 +17,7 @@ public:
         bool     decoder_no_errors,
         bool     exclusive_active,
         bool     dsp_disabled,
+        bool     pcm_passthrough,
         uint64_t rendered_samples,
         uint64_t underruns,
         int32_t  last_hresult,

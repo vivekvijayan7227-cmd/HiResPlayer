@@ -1,6 +1,7 @@
 # HiResPlayer Standalone Installer Builder Script
 param (
     [string]$Configuration = "Release",
+    [string]$Version = "1.0.1",
     [string]$InstallerOutputDir = "",
     [string]$SubFolderDir = ""
 )
@@ -59,16 +60,22 @@ Write-Host "Compiling HiResPlayer.Installer..." -ForegroundColor Green
 if ($LASTEXITCODE -ne 0) { throw "Installer build failed with exit code $LASTEXITCODE" }
 
 # 3. Create standardized installer name
-$TargetExe = Join-Path $SubFolderDir "HiResPlayer-Setup-v1.0.0.exe"
+$InstallerFileName = "HiResPlayer-Setup-v$Version.exe"
+$TargetExe = Join-Path $SubFolderDir $InstallerFileName
 Copy-Item (Join-Path $SubFolderDir "HiResPlayer.Installer.exe") $TargetExe -Force
 
 # 4. Copy to Installer directory
 New-Item -ItemType Directory -Path $InstallerOutputDir -Force | Out-Null
-Copy-Item $TargetExe (Join-Path $InstallerOutputDir "HiResPlayer-Setup-v1.0.0.exe") -Force
+Copy-Item $TargetExe (Join-Path $InstallerOutputDir $InstallerFileName) -Force
+
+$GitRootInstaller = Join-Path $RepoRoot "..\Installer"
+if ((Test-Path $GitRootInstaller) -and (Resolve-Path $GitRootInstaller).Path -ne (Resolve-Path $InstallerOutputDir).Path) {
+    Copy-Item $TargetExe (Join-Path $GitRootInstaller $InstallerFileName) -Force
+}
 
 # 5. Summary
 $SizeMb = [math]::Round(((Get-Item $TargetExe).Length / 1MB), 2)
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host " SUCCESS: Standalone installer created!" -ForegroundColor Green
-Write-Host " Output: $(Join-Path $InstallerOutputDir 'HiResPlayer-Setup-v1.0.0.exe') ($SizeMb MB)" -ForegroundColor Yellow
+Write-Host " Output: $(Join-Path $InstallerOutputDir $InstallerFileName) ($SizeMb MB)" -ForegroundColor Yellow
 Write-Host "==================================================" -ForegroundColor Cyan
