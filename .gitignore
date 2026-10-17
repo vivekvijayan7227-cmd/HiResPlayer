@@ -8,7 +8,10 @@
 [Bb]uild/
 [Dd]ist/
 HiResPlayer_Installer/
-Installer/
+
+# Allow Standalone Setup Installer (.exe tracked via Git LFS)
+!Installer/
+!Installer/*.exe
 
 # External Libraries & Upstream Dependencies
 flac-1.4.3/
@@ -61,6 +64,10 @@ HiResPlayer/assets/payload.zip
 # Allow required test runtime support libraries
 !HiResPlayer/tests/libc++.dll
 !HiResPlayer/tests/libunwind.dll
+
+# Allow Standalone Setup Installer (.exe tracked via Git LFS)
+!Installer/
+!Installer/*.exe
 
 # Ninja & CMake Artifacts
 .ninja_deps
