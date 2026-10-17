@@ -125,4 +125,17 @@ foreach ($t in $targets) {
     }
 }
 
+if ($env:FLAC_ROOT -and (Test-Path (Join-Path $env:FLAC_ROOT "bin"))) {
+    $flacDlls = Get-ChildItem (Join-Path $env:FLAC_ROOT "bin\*.dll") -ErrorAction SilentlyContinue
+    foreach ($fd in $flacDlls) {
+        foreach ($t in $targets) {
+            $parent = Split-Path $t -Parent
+            if (Test-Path $parent) {
+                Copy-Item $fd.FullName (Join-Path $parent $fd.Name) -Force
+                Write-Host "  -> Staged dependency $($fd.Name) to $parent" -ForegroundColor Gray
+            }
+        }
+    }
+}
+
 Write-Host "HiResAudioEngine build and staging complete." -ForegroundColor Green

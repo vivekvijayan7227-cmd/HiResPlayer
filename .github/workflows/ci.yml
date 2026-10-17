@@ -28,13 +28,16 @@ jobs:
       uses: ilammy/msvc-dev-cmd@v1
 
     - name: Install libFLAC via vcpkg
+      shell: powershell
       run: |
-        vcpkg install flac:x64-windows
+        $env:VCPKG_ROOT = $null
+        vcpkg install libflac:x64-windows --vcpkg-root "C:\vcpkg"
+        Add-Content $env:GITHUB_PATH "C:\vcpkg\installed\x64-windows\bin"
 
     - name: Build Native Audio Engine from C++ Source
       shell: powershell
       run: |
-        $env:FLAC_ROOT = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows"
+        $env:FLAC_ROOT = "C:\vcpkg\installed\x64-windows"
         powershell -ExecutionPolicy Bypass -File HiResPlayer/scripts/build_engine.ps1 -Clean
 
     - name: Restore Managed Solution

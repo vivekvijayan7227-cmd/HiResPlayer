@@ -59,6 +59,12 @@ $NativeDlls = @(
     (Join-Path $RepoRoot "tests\libc++.dll"),
     (Join-Path $RepoRoot "tests\libunwind.dll")
 )
+if ($env:FLAC_ROOT -and (Test-Path (Join-Path $env:FLAC_ROOT "bin"))) {
+    $flacDlls = Get-ChildItem (Join-Path $env:FLAC_ROOT "bin\*.dll") -ErrorAction SilentlyContinue
+    foreach ($fd in $flacDlls) {
+        $NativeDlls += $fd.FullName
+    }
+}
 foreach ($dll in $NativeDlls) {
     if (Test-Path $dll) {
         Copy-Item -Path $dll -Destination $OutputDir -Force
