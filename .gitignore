@@ -24,7 +24,7 @@ hiresplayer_windows_obsidian_studio.zip
 blueprints_reference/
 
 # Root Duplicate Scripts & Stale Batches
-scripts/
+/scripts/
 Launch_HiResPlayer.bat
 Run-HiResPlayer.bat
 HiResPlayer/Launch_HiResPlayer.bat

@@ -31,33 +31,34 @@ inline void pack_sample(uint8_t* dst, int32_t sample, const PackParams& p) noexc
     switch (p.container_bits) {
     case 16: {
         int32_t clamped = std::clamp(sample, -32768, 32767);
-        int16_t s16 = static_cast<int16_t>(clamped);
-        dst[0] = static_cast<uint8_t>(s16 & 0xFF);
-        dst[1] = static_cast<uint8_t>((s16 >> 8) & 0xFF);
+        uint16_t u16 = static_cast<uint16_t>(static_cast<int16_t>(clamped));
+        dst[0] = static_cast<uint8_t>(u16 & 0xFF);
+        dst[1] = static_cast<uint8_t>((u16 >> 8) & 0xFF);
         break;
     }
     case 24: {
         int32_t clamped = std::clamp(sample, -8388608, 8388607);
-        dst[0] = static_cast<uint8_t>(clamped & 0xFF);
-        dst[1] = static_cast<uint8_t>((clamped >> 8) & 0xFF);
-        dst[2] = static_cast<uint8_t>((clamped >> 16) & 0xFF);
+        uint32_t u24 = static_cast<uint32_t>(clamped);
+        dst[0] = static_cast<uint8_t>(u24 & 0xFF);
+        dst[1] = static_cast<uint8_t>((u24 >> 8) & 0xFF);
+        dst[2] = static_cast<uint8_t>((u24 >> 16) & 0xFF);
         break;
     }
     case 32: {
-        int32_t s32;
+        uint32_t u32;
         if (p.valid_bits == 24) {
             int32_t clamped = std::clamp(sample, -8388608, 8388607);
-            s32 = clamped << 8;
+            u32 = static_cast<uint32_t>(clamped) << 8;
         } else if (p.valid_bits == 16) {
             int32_t clamped = std::clamp(sample, -32768, 32767);
-            s32 = clamped << 16;
+            u32 = static_cast<uint32_t>(clamped) << 16;
         } else {
-            s32 = sample;
+            u32 = static_cast<uint32_t>(sample);
         }
-        dst[0] = static_cast<uint8_t>(s32 & 0xFF);
-        dst[1] = static_cast<uint8_t>((s32 >> 8) & 0xFF);
-        dst[2] = static_cast<uint8_t>((s32 >> 16) & 0xFF);
-        dst[3] = static_cast<uint8_t>((s32 >> 24) & 0xFF);
+        dst[0] = static_cast<uint8_t>(u32 & 0xFF);
+        dst[1] = static_cast<uint8_t>((u32 >> 8) & 0xFF);
+        dst[2] = static_cast<uint8_t>((u32 >> 16) & 0xFF);
+        dst[3] = static_cast<uint8_t>((u32 >> 24) & 0xFF);
         break;
     }
     }

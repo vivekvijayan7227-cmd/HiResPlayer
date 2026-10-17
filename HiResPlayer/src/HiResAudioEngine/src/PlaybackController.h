@@ -62,6 +62,7 @@ public:
 
 private:
     void DecodeThreadProc();
+    void JoinDecodeThread() noexcept;
     void FirePlaybackEvent(uint32_t evt, uint32_t state, int32_t hr, uint64_t pos);
     void UpdateState(HP_State new_state);
 

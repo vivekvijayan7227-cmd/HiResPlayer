@@ -270,6 +270,7 @@ HP_Result PlaybackController::OpenFlac(const std::wstring& path) {
     m_spectrum_analyzer.SetSampleRate(static_cast<float>(meta.sample_rate));
     m_dsp_graph.ResetFilterStates();
     m_resampler.Reset();
+    m_ring_buffer.set_frame_size(meta.channels * ((meta.bits_per_sample == 24 ? 32 : meta.bits_per_sample) / 8));
 
     UpdateState(HP_STATE_STOPPED);
     return HP_OK;
@@ -344,6 +345,9 @@ HP_Result PlaybackController::Play() {
         return HP_OK;
     }
 
+    // Safely join any finished or previous decode thread to prevent std::terminate()
+    JoinDecodeThread();
+
     // Determine target endpoint ID
     std::wstring dev_id = m_selected_device_id;
     if (dev_id.empty()) {
@@ -394,6 +398,11 @@ HP_Result PlaybackController::Play() {
     }
 
     const auto actual_wfex = m_renderer.GetActualFormat();
+    const size_t frame_bytes = (actual_wfex.Format.nBlockAlign > 0)
+        ? actual_wfex.Format.nBlockAlign
+        : (meta.channels * ((meta.bits_per_sample == 24 ? 32 : meta.bits_per_sample) / 8));
+    m_ring_buffer.set_frame_size(frame_bytes);
+
     if (m_actual_mode == HP_SHARED && actual_wfex.Format.nSamplesPerSec > 0) {
         m_resampler.Reset(meta.sample_rate, actual_wfex.Format.nSamplesPerSec);
     } else {
@@ -442,14 +451,8 @@ HP_Result PlaybackController::Pause() {
 }
 
 HP_Result PlaybackController::Stop() {
-    m_decode_stop.store(true);
-    m_decoder.RequestStop();
-
-    if (m_decode_thread.joinable()) {
-        m_decode_thread.join();
-    }
-    m_decoder.SetPcmCallback(nullptr);
-
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
+    JoinDecodeThread();
     m_renderer.Stop();
     UpdateState(HP_STATE_STOPPED);
     return HP_OK;
@@ -474,12 +477,7 @@ HP_Result PlaybackController::Seek(uint64_t sample_pos) {
     }
 
     // 1. Tell decode thread to stop and abort libFLAC decoding safely
-    m_decode_stop.store(true);
-    m_decoder.RequestStop();
-    if (m_decode_thread.joinable()) {
-        m_decode_thread.join();
-    }
-    m_decoder.SetPcmCallback(nullptr);
+    JoinDecodeThread();
 
     // 2. Perform seek on the decoder while it is completely idle
     std::string err;
@@ -534,6 +532,20 @@ HP_Result PlaybackController::GetVolume(float* out_volume) {
     return SUCCEEDED(hr) ? HP_OK : HP_DEVICE_UNAVAILABLE;
 }
 
+void PlaybackController::JoinDecodeThread() noexcept {
+    if (m_decode_thread.joinable()) {
+        if (m_decode_thread.get_id() == std::this_thread::get_id()) {
+            return;
+        }
+        m_decode_stop.store(true);
+        m_decoder.RequestStop();
+        try {
+            m_decode_thread.join();
+        } catch (...) {}
+    }
+    m_decoder.SetPcmCallback(nullptr);
+}
+
 void PlaybackController::DecodeThreadProc() {
     _mm_setcsr(_mm_getcsr() | 0x8040); // FTZ & DAZ for zero CPU denormal traps
 
@@ -544,22 +556,51 @@ void PlaybackController::DecodeThreadProc() {
 
     const auto& meta = m_decoder.metadata();
     const auto actual_wfex = m_renderer.GetActualFormat();
-    PackParams pack_params;
-    pack_params.valid_bits = meta.bits_per_sample;
-    pack_params.output_float = (m_actual_mode == HP_SHARED);
-    if (m_actual_mode == HP_SHARED) {
-        pack_params.container_bits = 32;
-    } else {
-        pack_params.container_bits = (actual_wfex.Format.wBitsPerSample > 0)
-            ? actual_wfex.Format.wBitsPerSample
-            : ((meta.bits_per_sample == 24) ? 32 : meta.bits_per_sample);
+
+    // 1. Determine actual negotiated target format properties
+    const uint32_t target_channels = (actual_wfex.Format.nChannels > 0) ? actual_wfex.Format.nChannels : meta.channels;
+
+    bool is_output_float = false;
+    if (actual_wfex.Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
+        static const GUID kGuidFloat = {
+            0x00000003, 0x0000, 0x0010,
+            { 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71 }
+        };
+        is_output_float = (std::memcmp(&actual_wfex.SubFormat, &kGuidFloat, sizeof(GUID)) == 0);
+    } else if (actual_wfex.Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
+        is_output_float = true;
+    } else if (m_actual_mode == HP_SHARED && actual_wfex.Format.wBitsPerSample == 32) {
+        static const GUID kGuidPCM = {
+            0x00000001, 0x0000, 0x0010,
+            { 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71 }
+        };
+        if (std::memcmp(&actual_wfex.SubFormat, &kGuidPCM, sizeof(GUID)) != 0) {
+            is_output_float = true;
+        }
     }
 
-    const size_t bytes_per_sample = pack_params.output_float ? 4 : (pack_params.container_bits / 8);
-    const size_t bytes_per_frame = meta.channels * bytes_per_sample;
+    const uint32_t target_container_bits = (actual_wfex.Format.wBitsPerSample > 0)
+        ? actual_wfex.Format.wBitsPerSample
+        : (is_output_float ? 32 : ((meta.bits_per_sample == 24) ? 32 : meta.bits_per_sample));
 
-    std::vector<uint8_t> pcm_scratch(65536 * bytes_per_frame);
+    const uint32_t target_valid_bits = (actual_wfex.Samples.wValidBitsPerSample > 0)
+        ? actual_wfex.Samples.wValidBitsPerSample
+        : (is_output_float ? 32 : meta.bits_per_sample);
+
+    const uint32_t target_block_align = (actual_wfex.Format.nBlockAlign > 0)
+        ? actual_wfex.Format.nBlockAlign
+        : (target_channels * (target_container_bits / 8));
+
+    PackParams pack_params;
+    pack_params.valid_bits = target_valid_bits;
+    pack_params.container_bits = target_container_bits;
+    pack_params.output_float = is_output_float;
+
+    // Buffer scratchpads
+    std::vector<float> stereo_float_buf;
     std::vector<float> resample_scratch;
+    std::vector<uint8_t> out_scratch;
+
     if (m_actual_mode == HP_SHARED && m_resampler.NeedsResampling()) {
         resample_scratch.resize(65536 * 4);
     }
@@ -567,36 +608,111 @@ void PlaybackController::DecodeThreadProc() {
     m_decoder.SetPcmCallback([&](const int32_t* const* samples, uint32_t channels, uint32_t samples_per_ch, uint32_t bits) {
         if (m_decode_stop.load()) return;
 
-        uint32_t active_channels = channels;
-        if (m_actual_mode == HP_SHARED && channels == 1) {
-            const int32_t* mono_ptrs[2] = { samples[0], samples[0] };
-            pack_frames(pcm_scratch.data(), mono_ptrs, 2, samples_per_ch, pack_params);
-            active_channels = 2;
-        } else {
-            pack_frames(pcm_scratch.data(), samples, channels, samples_per_ch, pack_params);
+        // Path A: Bit-perfect Exclusive Mode (matching channels and integer PCM)
+        if (m_actual_mode == HP_EXCLUSIVE && channels == target_channels && !is_output_float) {
+            size_t total_bytes = samples_per_ch * target_block_align;
+            if (out_scratch.size() < total_bytes) {
+                out_scratch.resize(total_bytes);
+            }
+            pack_frames(out_scratch.data(), samples, channels, samples_per_ch, pack_params);
+
+            size_t written = 0;
+            while (written < total_bytes && !m_decode_stop.load()) {
+                if (m_current_gen != m_ring_buffer.get_write_gen()) break;
+                size_t w = m_ring_buffer.write(out_scratch.data() + written, total_bytes - written, m_current_gen);
+                written += w;
+                if (written < total_bytes) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                }
+            }
+            return;
         }
 
-        const uint8_t* write_ptr = pcm_scratch.data();
-        size_t total_bytes = samples_per_ch * active_channels * bytes_per_sample;
+        // Path B: Shared Mode or format-converting pipeline
+        // Convert input samples to normalized stereo float [-1.0f, 1.0f)
+        stereo_float_buf.resize(samples_per_ch * 2);
+        const float scale = 1.0f / static_cast<float>(1LL << (bits - 1));
+        for (uint32_t i = 0; i < samples_per_ch; ++i) {
+            float l = static_cast<float>(samples[0][i]) * scale;
+            float r = (channels >= 2) ? (static_cast<float>(samples[1][i]) * scale) : l;
+            stereo_float_buf[i * 2]     = l;
+            stereo_float_buf[i * 2 + 1] = r;
+        }
 
-        if (m_actual_mode == HP_SHARED && m_resampler.NeedsResampling() && pack_params.output_float && active_channels == 2) {
-            size_t max_out_frames = resample_scratch.size() / 2;
-            size_t out_frames = m_resampler.Process(
-                reinterpret_cast<const float*>(pcm_scratch.data()),
+        const float* float_data = stereo_float_buf.data();
+        size_t effective_frames = samples_per_ch;
+
+        if (m_actual_mode == HP_SHARED && m_resampler.NeedsResampling()) {
+            size_t max_out = resample_scratch.size() / 2;
+            effective_frames = m_resampler.Process(
+                stereo_float_buf.data(),
                 samples_per_ch,
                 resample_scratch.data(),
-                max_out_frames
+                max_out
             );
-            write_ptr = reinterpret_cast<const uint8_t*>(resample_scratch.data());
-            total_bytes = out_frames * 2 * sizeof(float);
+            float_data = resample_scratch.data();
+        }
+
+        // Map and pack effective_frames into target_channels and target sample representation
+        const size_t total_out_bytes = effective_frames * target_block_align;
+        if (out_scratch.size() < total_out_bytes) {
+            out_scratch.resize(total_out_bytes);
+        }
+        uint8_t* dst = out_scratch.data();
+
+        if (is_output_float && target_channels == 2) {
+            // Fast-path: standard stereo float32
+            std::memcpy(dst, float_data, total_out_bytes);
+        } else if (is_output_float) {
+            // Multi-channel or mono float32
+            for (size_t f = 0; f < effective_frames; ++f) {
+                float fl = float_data[f * 2];
+                float fr = float_data[f * 2 + 1];
+                uint8_t* frame_dst = dst + f * target_block_align;
+                if (target_channels == 1) {
+                    float mono = 0.5f * (fl + fr);
+                    std::memcpy(frame_dst, &mono, 4);
+                } else {
+                    std::memcpy(frame_dst, &fl, 4);
+                    std::memcpy(frame_dst + 4, &fr, 4);
+                    for (uint32_t ch = 2; ch < target_channels; ++ch) {
+                        float zero = 0.0f;
+                        std::memcpy(frame_dst + ch * 4, &zero, 4);
+                    }
+                }
+            }
+        } else {
+            // Integer PCM target (16-bit, 24-bit packed, or 24-bit in 32-bit container)
+            const uint32_t bytes_per_sample = target_container_bits / 8;
+            const double max_val = static_cast<double>((1LL << (target_valid_bits - 1)) - 1);
+            for (size_t f = 0; f < effective_frames; ++f) {
+                float fl = float_data[f * 2];
+                float fr = float_data[f * 2 + 1];
+                uint8_t* frame_dst = dst + f * target_block_align;
+                if (target_channels == 1) {
+                    float mono = 0.5f * (fl + fr);
+                    int32_t s = static_cast<int32_t>(std::clamp(static_cast<double>(mono) * max_val, -max_val - 1.0, max_val));
+                    pack_sample(frame_dst, s, pack_params);
+                } else {
+                    int32_t sl = static_cast<int32_t>(std::clamp(static_cast<double>(fl) * max_val, -max_val - 1.0, max_val));
+                    pack_sample(frame_dst, sl, pack_params);
+
+                    int32_t sr = static_cast<int32_t>(std::clamp(static_cast<double>(fr) * max_val, -max_val - 1.0, max_val));
+                    pack_sample(frame_dst + bytes_per_sample, sr, pack_params);
+
+                    for (uint32_t ch = 2; ch < target_channels; ++ch) {
+                        pack_sample(frame_dst + ch * bytes_per_sample, 0, pack_params);
+                    }
+                }
+            }
         }
 
         size_t written = 0;
-        while (written < total_bytes && !m_decode_stop.load()) {
+        while (written < total_out_bytes && !m_decode_stop.load()) {
             if (m_current_gen != m_ring_buffer.get_write_gen()) break;
-            size_t w = m_ring_buffer.write(write_ptr + written, total_bytes - written, m_current_gen);
+            size_t w = m_ring_buffer.write(dst + written, total_out_bytes - written, m_current_gen);
             written += w;
-            if (written < total_bytes) {
+            if (written < total_out_bytes) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(2));
             }
         }

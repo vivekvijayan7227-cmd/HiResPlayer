@@ -1,17 +1,38 @@
 # HiResPlayer Portable Packaging Script (Windows x64)
 param (
     [string]$Configuration = "Release",
-    [string]$OutputDir = "d:\AudioPlayer\HiResPlayer\dist\HiResPlayer-win-x64"
+    [string]$OutputDir = ""
 )
 
 $ErrorActionPreference = "Stop"
-$DotNetExe = "C:\Users\Vivek\AppData\Local\Programs\dotnet10\dotnet.exe"
-if (-not (Test-Path $DotNetExe)) {
-    $DotNetExe = "dotnet"
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+
+if (-not $OutputDir) {
+    $OutputDir = Join-Path $RepoRoot "dist\HiResPlayer-win-x64"
 }
 
+# ── Dynamic DotNet Discovery ─────────────────────────────────────────────────
+function Find-DotNet {
+    $candidates = @(
+        (Get-Command dotnet -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source -ErrorAction SilentlyContinue),
+        (Join-Path $env:LOCALAPPDATA "Programs\dotnet10\dotnet.exe"),
+        "C:\Program Files\dotnet\dotnet.exe"
+    )
+    foreach ($c in $candidates) {
+        if ($c -and (Test-Path $c)) {
+            # Check if this dotnet has SDK installed
+            $sdks = & $c --list-sdks 2>$null
+            if ($sdks) { return $c }
+        }
+    }
+    return "dotnet"
+}
+
+$DotNetExe = Find-DotNet
+
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host " HiResPlayer Release Packaging (M6 & M9)" -ForegroundColor Cyan
+Write-Host " HiResPlayer Release Packaging" -ForegroundColor Cyan
+Write-Host " Output: $OutputDir" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
 # 1. Clean output dir
@@ -22,20 +43,21 @@ if (Test-Path $OutputDir) {
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 
 # 2. Publish Desktop App
+$desktopProj = Join-Path $RepoRoot "src\HiResPlayer.Desktop\HiResPlayer.Desktop.csproj"
 Write-Host "Publishing HiResPlayer.Desktop (Self-Contained)..." -ForegroundColor Green
-& $DotNetExe publish "d:\AudioPlayer\HiResPlayer\src\HiResPlayer.Desktop\HiResPlayer.Desktop.csproj" `
+& $DotNetExe publish $desktopProj `
     -c $Configuration `
     -r win-x64 `
     --self-contained true `
     -o $OutputDir
-if ($LASTEXITCODE -ne 0) { throw "Desktop publish failed" }
+if ($LASTEXITCODE -ne 0) { throw "Desktop publish failed with exit code $LASTEXITCODE" }
 
 # 3. Staging native engine libraries
 Write-Host "Staging native engine libraries..." -ForegroundColor Green
 $NativeDlls = @(
-    "d:\AudioPlayer\HiResPlayer\src\HiResAudioEngine\build\HiResAudioEngine.dll",
-    "d:\AudioPlayer\HiResPlayer\tests\libc++.dll",
-    "d:\AudioPlayer\HiResPlayer\tests\libunwind.dll"
+    (Join-Path $RepoRoot "src\HiResAudioEngine\build\HiResAudioEngine.dll"),
+    (Join-Path $RepoRoot "tests\libc++.dll"),
+    (Join-Path $RepoRoot "tests\libunwind.dll")
 )
 foreach ($dll in $NativeDlls) {
     if (Test-Path $dll) {
@@ -47,54 +69,52 @@ foreach ($dll in $NativeDlls) {
 }
 
 # 4. Copy branding assets
-Copy-Item "d:\AudioPlayer\HiResPlayer\assets\app_icon.ico" -Destination $OutputDir -Force
-Copy-Item "d:\AudioPlayer\HiResPlayer\assets\app_icon_transparent.png" -Destination (Join-Path $OutputDir "app_icon.png") -Force
+$icoSrc = Join-Path $RepoRoot "assets\app_icon.ico"
+$pngSrc = Join-Path $RepoRoot "assets\app_icon_transparent.png"
+if (Test-Path $icoSrc) { Copy-Item $icoSrc -Destination $OutputDir -Force }
+if (Test-Path $pngSrc) { Copy-Item $pngSrc -Destination (Join-Path $OutputDir "app_icon.png") -Force }
 Write-Host "  -> Staged app_icon.ico and app_icon.png" -ForegroundColor Gray
 
 # 5. Copy Sample Test Tracks
 $SampleDir = Join-Path $OutputDir "Samples"
 New-Item -ItemType Directory -Path $SampleDir -Force | Out-Null
-Copy-Item "d:\AudioPlayer\HiResPlayer\tests\Fixtures\*.flac" -Destination $SampleDir -Force
+$fixtureGlob = Join-Path $RepoRoot "tests\Fixtures\*.flac"
+Copy-Item $fixtureGlob -Destination $SampleDir -Force -ErrorAction SilentlyContinue
 
 # 6. Documentation
 $DocContent = @"
-HiResPlayer — Bit-Perfect FLAC & Enhanced Audio Studio for Windows
-==================================================================
+================================================================================
+ HiResPlayer v1.0.0 — Audiophile Bit-Perfect FLAC Player & Acoustic Studio
+================================================================================
 
-Version: 1.0.0-lts
-Target: Windows 11 / Windows 10 (64-bit)
+Quick Start:
+  1. Launch HiResPlayer.Desktop.exe
+  2. Select your Audio Output Device from Settings / Devices
+  3. Choose Playback Mode:
+       - WASAPI Exclusive Mode: Bit-perfect hardware rendering (locks DAC)
+       - WASAPI Shared Mode: High-resolution rendering with sinc resampler
+  4. Play FLAC files or drag and drop audio folders into the player
 
-Audio Modes:
-1. Original / Bit-Perfect:
-   - Direct WASAPI Exclusive PCM stream with zero modifications.
-   - All DSP, gain, and format conversions bypassed.
-   - Confirmed by the 7-point hardware/stream eligibility gate.
+Included Sample Files:
+  - Samples\sample_44k_16b.flac (16-bit / 44.1 kHz Red Book CD standard)
+  - Samples\sample_96k_24b.flac (24-bit / 96 kHz Studio Master)
 
-2. Enhanced Audio:
-   - Real-time 10-Band Graphic Equalizer (-12 dB to +12 dB)
-   - Studio Parametric EQ with 12 band types
-   - Master Preamp (-18 dB to +6 dB) with smooth parameter slewing
-   - Dedicated Non-AI Focus Studio: Vocal Focus & Instrumental Focus (Phase-Coherent M/S)
-   - Real-time Stereo Phase Correlation (-1.0 to +1.0) & 32-Band FFT Spectrum Monitoring
-   - 100% Offline Non-AI Classical Audio Analysis: Zero ONNX runtimes, Zero cloud dependencies
-   - Clearly labeled: "Processed Audio — Not Bit-perfect"
+Acoustic Mastering Studio:
+  - 10-Band Precision Graphic Equalizer with Studio Pro Presets
+  - 5-Band Parametric Equalizer with custom Q-factor control
+  - Studio Center Channel (Vocal Focus / Center Cut)
+  - Live 60 FPS Real-time FFT Audio Spectrum Analyzer
 
-Usage:
-  Launch 'HiResPlayer.Desktop.exe'.
-  Click 'Open FLAC File' or drag and drop reference tracks from the 'Samples\' folder.
+Architecture:
+  - C++20 Native Audio Engine (libFLAC, WASAPI event-driven, MMCSS Audio priority)
+  - Polyphase Kaiser-windowed sinc resampler (>105 dB alias rejection)
+  - 100% Offline, Zero Telemetry, Deterministic DSP
+
+================================================================================
 "@
-Set-Content -Path (Join-Path $OutputDir "README.txt") -Value $DocContent
-
-# 7. Mirror to root dist folder for convenient access
-$RootDist = "d:\AudioPlayer\dist\HiResPlayer-win-x64"
-if ($OutputDir -ne $RootDist) {
-    Write-Host "Mirroring to root distribution folder: $RootDist..." -ForegroundColor Green
-    New-Item -ItemType Directory -Path $RootDist -Force | Out-Null
-    Copy-Item -Path "$OutputDir\*" -Destination $RootDist -Recurse -Force
-}
+Set-Content -Path (Join-Path $OutputDir "README.txt") -Value $DocContent -Encoding UTF8
 
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host " Package successfully created at:" -ForegroundColor Cyan
-Write-Host "   1. $OutputDir" -ForegroundColor Yellow
-Write-Host "   2. $RootDist" -ForegroundColor Yellow
+Write-Host " Packaging completed successfully!" -ForegroundColor Green
+Write-Host " Destination: $OutputDir" -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Cyan
