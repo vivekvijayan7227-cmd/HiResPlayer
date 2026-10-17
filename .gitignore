@@ -9,9 +9,40 @@
 [Dd]ist/
 HiResPlayer_Installer/
 Installer/
-flac-1.4.3/build/
 
-# Packaging Payloads & Zips
+# External Libraries & Upstream Dependencies
+flac-1.4.3/
+
+# Staging & Unzipped Theme Packages
+hiresplayer_windows_obsidian_studio/
+hiresplayer_windows_obsidian_studio.zip
+
+# Blueprints & UI Concepts
+blueprints_reference/
+
+# Root Duplicate Scripts & Stale Batches
+scripts/
+Launch_HiResPlayer.bat
+Run-HiResPlayer.bat
+HiResPlayer/Launch_HiResPlayer.bat
+
+# Session Working Logs & Audit Dumps
+FINAL_ACCEPTANCE_REPORT.md
+HiResPlayer_Premium_NonAI_Engineering_Audit_and_Build_Spec.md
+HiResPlayer_UI_EQ_Vocal_Isolation_PRD_Addendum.md
+HiRes_FLAC_Player_Windows_Antigravity_PRD.md
+HiResPlayer/AUDIT_MATRIX.md
+HiResPlayer/CONFLICT_AND_FILE_OWNERSHIP.md
+HiResPlayer/FINAL_ACCEPTANCE_REPORT.md
+HiResPlayer/IMPLEMENTATION_STATUS.md
+HiResPlayer/PATCH_IMPACT.md
+HiResPlayer/RELEASE_DECISION.md
+HiResPlayer/SIGNAL_PATHS.md
+HiResPlayer/TEST_RESULTS.md
+HiResPlayer/UI_CHANGELOG.md
+HiResPlayer/UI_VISUAL_QA.md
+
+# Packaging Payloads & Archives
 *.zip
 *.7z
 *.tar.gz
@@ -63,7 +94,16 @@ Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
 
-# Scratch & Temporary Verification Files
+# Scratch Scripts & UI Verification Captures
+HiResPlayer/tests/scratch_*
+HiResPlayer/tests/test_err.txt
+HiResPlayer/tests/test_out.txt
+HiResPlayer/tests/test_bmp.ps1
+HiResPlayer/probe_wasapi.cpp
+HiResPlayer/test_exclusive_play.cpp
+HiResPlayer/scripts/capture_*
+HiResPlayer/scripts/check_crash.ps1
+HiResPlayer/scripts/test_installer_execution.ps1
 build_obsidian_icon.py
 test_taskbar.ps1
 .DirectoryName
