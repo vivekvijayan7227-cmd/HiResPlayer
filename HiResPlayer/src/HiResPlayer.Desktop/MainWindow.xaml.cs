@@ -2871,7 +2871,7 @@ namespace HiResPlayer.Desktop
                 var hLine = new Line
                 {
                     X1 = 0, Y1 = y, X2 = w, Y2 = y,
-                    Stroke = (db == 0.0) ? new SolidColorBrush(Color.FromArgb(90, 139, 92, 246)) : gridBrush,
+                    Stroke = (db == 0.0) ? new SolidColorBrush(Color.FromArgb(100, 103, 183, 255)) : gridBrush, // Studio.Blue subtle 0 dB reference
                     StrokeThickness = (db == 0.0) ? 1.5 : 1,
                     StrokeDashArray = (db == 0.0) ? new DoubleCollection { 4, 3 } : null
                 };
@@ -2888,7 +2888,7 @@ namespace HiResPlayer.Desktop
                 canvas.Children.Add(txt);
             }
 
-            // 2. Live Audio Spectrum Bars (when playing in Now Playing)
+            // 2. Live Audio Spectrum Bars (when playing in Now Playing - Studio Blue #67B7FF)
             if (isNowPlaying)
             {
                 var barGradient = new LinearGradientBrush
@@ -2896,9 +2896,9 @@ namespace HiResPlayer.Desktop
                     StartPoint = new System.Windows.Point(0, 0),
                     EndPoint = new System.Windows.Point(0, 1)
                 };
-                barGradient.GradientStops.Add(new GradientStop(Color.FromArgb(210, 34, 211, 238), 0.0)); // Cyan Light top
-                barGradient.GradientStops.Add(new GradientStop(Color.FromArgb(170, 139, 92, 246), 0.6)); // Violet
-                barGradient.GradientStops.Add(new GradientStop(Color.FromArgb(110, 79, 70, 229), 1.0)); // Deep Indigo bottom
+                barGradient.GradientStops.Add(new GradientStop(Color.FromArgb(225, 103, 183, 255), 0.0)); // Studio.Blue #67B7FF top
+                barGradient.GradientStops.Add(new GradientStop(Color.FromArgb(170, 75, 145, 215), 0.6));  // Studio.Blue mid
+                barGradient.GradientStops.Add(new GradientStop(Color.FromArgb(110, 35, 75, 125), 1.0));   // Deep Studio Navy bottom
 
                 double barWidth = (w / 32.0) - 3.0;
                 for (int b = 0; b < 32; b++)
@@ -2927,19 +2927,19 @@ namespace HiResPlayer.Desktop
             // 3. Honest DSP Curve
             if (bitPerfect)
             {
-                // Pure Untouched Bit-Perfect Line (Radiant Green 0.00 dB)
+                // Pure Untouched Bit-Perfect Line (Studio.Success #66D6A3 0.00 dB)
                 double yZero = DbToY(0.0);
                 var bpLine = new Line
                 {
                     X1 = 0, Y1 = yZero, X2 = w, Y2 = yZero,
-                    Stroke = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
+                    Stroke = new SolidColorBrush(Color.FromRgb(102, 214, 163)),
                     StrokeThickness = 2.5
                 };
                 canvas.Children.Add(bpLine);
 
                 var badgeBorder = new Border
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(160, 16, 185, 129)),
+                    Background = new SolidColorBrush(Color.FromArgb(160, 102, 214, 163)),
                     CornerRadius = new CornerRadius(4),
                     Padding = new Thickness(6, 2, 6, 2)
                 };
@@ -2955,7 +2955,7 @@ namespace HiResPlayer.Desktop
             }
             else
             {
-                // Master EQ Curve
+                // Master EQ Curve (Studio.Gold #F5C76A)
                 if (isNowPlaying || isEq)
                 {
                     const int numPoints = 80;
@@ -2977,14 +2977,14 @@ namespace HiResPlayer.Desktop
                     var fillPoly = new Polygon
                     {
                         Points = fillPoints,
-                        Fill = new SolidColorBrush(Color.FromArgb(35, 139, 92, 246))
+                        Fill = new SolidColorBrush(Color.FromArgb(30, 245, 199, 106)) // Studio.Gold subtle glow
                     };
                     canvas.Children.Add(fillPoly);
 
                     var curve = new Polyline
                     {
                         Points = points,
-                        Stroke = new SolidColorBrush(Color.FromRgb(167, 139, 250)),
+                        Stroke = new SolidColorBrush(Color.FromRgb(245, 199, 106)), // Studio.Gold #F5C76A
                         StrokeThickness = 2.5
                     };
                     canvas.Children.Add(curve);
@@ -3011,8 +3011,8 @@ namespace HiResPlayer.Desktop
                         {
                             Points = vPoints,
                             Stroke = (RadVocalsFocus?.IsChecked == true)
-                                ? new SolidColorBrush(Color.FromRgb(6, 182, 212))
-                                : new SolidColorBrush(Color.FromRgb(245, 158, 11)),
+                                ? new SolidColorBrush(Color.FromRgb(103, 183, 255)) // Studio.Blue
+                                : new SolidColorBrush(Color.FromRgb(245, 199, 106)), // Studio.Gold
                             StrokeThickness = 2.0,
                             StrokeDashArray = (RadInstrumental?.IsChecked == true) ? new DoubleCollection { 3, 2 } : null
                         };
