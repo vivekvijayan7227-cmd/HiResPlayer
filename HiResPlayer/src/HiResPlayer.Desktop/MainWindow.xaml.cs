@@ -17,6 +17,7 @@ using Microsoft.Win32;
 using HiResPlayer.Application.Equalizer;
 using HiResPlayer.Application.Services;
 using System.ComponentModel;
+using System.Windows.Data;
 using HiResPlayer.Infrastructure.Native;
 
 namespace HiResPlayer.Desktop
@@ -46,6 +47,23 @@ namespace HiResPlayer.Desktop
         public string ComposerDisplay => !string.IsNullOrWhiteSpace(Composer)
             ? $"Comp: {Composer}"
             : (!string.IsNullOrWhiteSpace(Genre) && Genre != "Unknown Genre" ? $"Genre: {Genre}" : "");
+
+        public string DirectoryPath
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(FilePath)) return "Library Root";
+                try
+                {
+                    string? dir = System.IO.Path.GetDirectoryName(FilePath);
+                    return string.IsNullOrWhiteSpace(dir) ? "Library Root" : dir;
+                }
+                catch
+                {
+                    return "Library Root";
+                }
+            }
+        }
 
         public bool IsPlayingTrack
         {
@@ -1189,7 +1207,8 @@ namespace HiResPlayer.Desktop
             if (NpBufferStatus != null)
             {
                 string syncState = _isPlaying ? "Active Stream" : "Standby";
-                NpBufferStatus.Text = $"Buffer: Underruns: {status.UnderrunCount} • State: {syncState} • Ring Buffer: 100% Healthy";
+                string bufferHealth = status.UnderrunCount == 0 ? "Nominal (0 Underruns)" : $"{status.UnderrunCount} Underruns Detected";
+                NpBufferStatus.Text = $"Buffer Stream: {syncState} • Buffer Health: {bufferHealth}";
             }
 
             // Seek bar
@@ -1312,6 +1331,11 @@ namespace HiResPlayer.Desktop
                 {
                     BorderQueueRail.Visibility = Visibility.Collapsed;
                 }
+                if (QueueDockFlyout != null)
+                {
+                    UpdateQueueFlyout();
+                    QueueDockFlyout.Visibility = Visibility.Visible;
+                }
             }
 
             // 3. Library responsive column widths based on available center content width
@@ -1389,6 +1413,7 @@ namespace HiResPlayer.Desktop
         {
             SetFilterPillActive("Albums");
             _filteredTracks = _filteredTracks.OrderBy(t => t.Album).ThenBy(t => t.Title).ToList();
+            LstTracks.ItemsSource = null;
             LstTracks.Items.Clear();
             foreach (var t in _filteredTracks) LstTracks.Items.Add(t);
         }
@@ -1397,6 +1422,7 @@ namespace HiResPlayer.Desktop
         {
             SetFilterPillActive("Artists");
             _filteredTracks = _filteredTracks.OrderBy(t => t.Artist).ThenBy(t => t.Album).ThenBy(t => t.Title).ToList();
+            LstTracks.ItemsSource = null;
             LstTracks.Items.Clear();
             foreach (var t in _filteredTracks) LstTracks.Items.Add(t);
         }
@@ -1411,14 +1437,16 @@ namespace HiResPlayer.Desktop
         {
             SelectPlaylist(null);
             _filteredTracks = _libraryTracks
-                .OrderBy(t => System.IO.Path.GetDirectoryName(t.FilePath) ?? string.Empty)
-                .ThenBy(t => t.Title)
+                .OrderBy(t => t.DirectoryPath, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+
+            LstTracks.ItemsSource = null;
             LstTracks.Items.Clear();
-            foreach (var t in _filteredTracks)
-            {
-                LstTracks.Items.Add(t);
-            }
+            var view = new ListCollectionView(_filteredTracks);
+            view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(TrackViewItem.DirectoryPath)));
+            LstTracks.ItemsSource = view;
+
             UpdateLibraryCount();
             if (PnlEmptyLibrary != null)
             {
@@ -1731,6 +1759,7 @@ namespace HiResPlayer.Desktop
             _libraryTracks.Clear();
             _filteredTracks.Clear();
             _activePlaybackContext = Array.Empty<TrackViewItem>();
+            LstTracks.ItemsSource = null;
             LstTracks.Items.Clear();
             UpdateLibraryCount();
             SaveLibrary();
@@ -2048,30 +2077,47 @@ namespace HiResPlayer.Desktop
 
         private void BtnDockNowPlaying_Click(object sender, RoutedEventArgs e)
         {
-            if (BorderQueueRail != null && ColQueueRail != null)
+            if (ActualWidth < 1100)
             {
-                if (BorderQueueRail.Visibility == Visibility.Visible)
+                // Responsive narrow mode: preserve central library/stage width, open Queue flyout overlay
+                if (BorderQueueRail != null && ColQueueRail != null)
                 {
                     BorderQueueRail.Visibility = Visibility.Collapsed;
                     ColQueueRail.Width = new GridLength(0);
                 }
-                else
+                if (QueueDockFlyout != null)
                 {
-                    RefreshQueueRail();
-                    BorderQueueRail.Visibility = Visibility.Visible;
-                    ColQueueRail.Width = new GridLength(320);
+                    if (QueueDockFlyout.Visibility == Visibility.Visible)
+                    {
+                        QueueDockFlyout.Visibility = Visibility.Collapsed;
+                    }
+                    else
+                    {
+                        UpdateQueueFlyout();
+                        QueueDockFlyout.Visibility = Visibility.Visible;
+                    }
                 }
             }
-            else if (QueueDockFlyout != null)
+            else
             {
-                if (QueueDockFlyout.Visibility == Visibility.Visible)
+                // Wide desktop mode: close flyout overlay and toggle 320px in-grid rail
+                if (QueueDockFlyout != null)
                 {
                     QueueDockFlyout.Visibility = Visibility.Collapsed;
                 }
-                else
+                if (BorderQueueRail != null && ColQueueRail != null)
                 {
-                    UpdateQueueFlyout();
-                    QueueDockFlyout.Visibility = Visibility.Visible;
+                    if (BorderQueueRail.Visibility == Visibility.Visible)
+                    {
+                        BorderQueueRail.Visibility = Visibility.Collapsed;
+                        ColQueueRail.Width = new GridLength(0);
+                    }
+                    else
+                    {
+                        RefreshQueueRail();
+                        BorderQueueRail.Visibility = Visibility.Visible;
+                        ColQueueRail.Width = new GridLength(320);
+                    }
                 }
             }
         }
@@ -2701,11 +2747,16 @@ namespace HiResPlayer.Desktop
             }
         }
 
-        private void BarDevicePill_MouseUp(object sender, MouseButtonEventArgs e)
+        private void BtnDockDevice_Click(object sender, RoutedEventArgs e)
         {
             HideAllViews();
             ViewSettings.Visibility = Visibility.Visible;
             SetActiveNav(NavSettings);
+        }
+
+        private void BarDevicePill_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            BtnDockDevice_Click(sender, e);
         }
 
         private void RadWasapiMode_Checked(object sender, RoutedEventArgs e)
@@ -2864,7 +2915,7 @@ namespace HiResPlayer.Desktop
                     dockFormatText = "Original PCM — Bit-Perfect Eligible";
                     pipelineText = "Original PCM — Bit-Perfect Eligible";
                     bitPerfectText = "Yes — Bit-Perfect Eligible";
-                    statusBrush = (Brush)FindResource("Studio.Green");
+                    statusBrush = (Brush)(TryFindResource("Studio.Green") ?? TryFindResource("Studio.Success") ?? Brushes.MediumSeaGreen);
                     tooltip = "WASAPI Exclusive Mode — Direct Hardware Access (Source sample rate and bit-depth preserved, zero DSP, zero mixing)";
                     dspText = "Direct Pass-Through (0.00 dB)";
                     modeText = "WASAPI Exclusive (Direct Access)";
@@ -2933,7 +2984,7 @@ namespace HiResPlayer.Desktop
             if (DiagBitPerfect != null)
             {
                 DiagBitPerfect.Text = bitPerfectText;
-                DiagBitPerfect.Foreground = isBpEligible ? (Brush)FindResource("Studio.Green") : statusBrush;
+                DiagBitPerfect.Foreground = isBpEligible ? (Brush)(TryFindResource("Studio.Green") ?? TryFindResource("Studio.Success") ?? Brushes.MediumSeaGreen) : statusBrush;
             }
             if (DiagPipeline != null)
             {
@@ -3830,6 +3881,7 @@ namespace HiResPlayer.Desktop
             }).ToList();
 
             _filteredTracks = filtered;
+            LstTracks.ItemsSource = null;
             LstTracks.Items.Clear();
             foreach (var t in _filteredTracks)
             {

@@ -295,6 +295,14 @@ HP_API HP_Result HP_CALL hp_get_bluetooth_fidelity_status(
     HP_BluetoothFidelityStatusV1* out_status
 );
 
+// Sample-by-sample reference PCM equality verification against uncompressed WAV
+HP_API HP_Result HP_CALL hp_verify_flac_pcm_exact(
+    const wchar_t* flac_path,
+    const wchar_t* wav_path,
+    uint32_t*      out_mismatches,
+    uint64_t*      out_compared_samples
+);
+
 #ifdef __cplusplus
 }
 #endif

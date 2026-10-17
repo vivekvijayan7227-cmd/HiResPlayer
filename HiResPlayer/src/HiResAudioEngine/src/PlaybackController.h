@@ -85,6 +85,8 @@ private:
 
     std::thread         m_decode_thread;
     std::atomic<bool>   m_decode_stop { false };
+    std::atomic<bool>   m_is_preparing { false };
+    std::atomic<bool>   m_decoder_finished { false };
     std::atomic<uint64_t> m_seek_target { 0 };
     std::atomic<bool>   m_seek_requested { false };
     uint64_t            m_current_gen = 1;

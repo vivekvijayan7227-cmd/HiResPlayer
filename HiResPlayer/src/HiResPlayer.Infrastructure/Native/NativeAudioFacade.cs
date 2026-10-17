@@ -329,6 +329,12 @@ namespace HiResPlayer.Infrastructure.Native
             }
         }
 
+        public static (bool success, uint mismatches, ulong comparedSamples) VerifyFlacAgainstWav(string flacPath, string wavPath)
+        {
+            int res = AudioEngineNative.VerifyFlacPcmExact(flacPath, wavPath, out uint mismatches, out ulong comparedSamples);
+            return (res == 0, mismatches, comparedSamples);
+        }
+
         ~NativeAudioFacade()
         {
             Dispose();

@@ -17,6 +17,9 @@ static const GUID kSubtypeFloat = {
 DWORD AudioFormatNegotiator::ChannelMask(uint32_t channels) {
     if (channels == 1) return KSAUDIO_SPEAKER_MONO;    // 0x4
     if (channels == 2) return KSAUDIO_SPEAKER_STEREO;  // 0x3
+    if (channels == 4) return KSAUDIO_SPEAKER_QUAD;    // 0x33
+    if (channels == 6) return KSAUDIO_SPEAKER_5POINT1; // 0x3F
+    if (channels == 8) return KSAUDIO_SPEAKER_7POINT1; // 0xFF
     return 0;
 }
 

@@ -55,8 +55,8 @@ public:
     bool SeekToSample(uint64_t sample_position, std::string& error_out);
 
     // Returns true if any decoder error has occurred since last reset.
-    bool HasError() const { return m_has_error; }
-    void ResetError() { m_has_error = false; }
+    bool HasError() const { return m_has_error.load(std::memory_order_acquire); }
+    void ResetError() { m_has_error.store(false, std::memory_order_release); }
 
     // Abort an in-progress decode (thread-safe via atomic flag)
     void RequestStop() { m_stop_requested.store(true, std::memory_order_release); }
@@ -81,7 +81,7 @@ private:
     FlacMetadata          m_meta;
     FlacPcmCallback       m_pcm_cb;
     FlacErrorCallback     m_err_cb;
-    bool                  m_has_error       = false;
+    std::atomic<bool>     m_has_error       { false };
     bool                  m_meta_ready      = false;
     std::atomic<bool>     m_stop_requested  {false};
     std::atomic<bool>     m_seeking         {false};

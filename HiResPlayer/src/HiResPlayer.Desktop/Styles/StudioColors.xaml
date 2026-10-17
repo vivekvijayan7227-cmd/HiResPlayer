@@ -15,6 +15,7 @@
     <Color x:Key="Studio.Divider.Color">#293246</Color>
     <Color x:Key="Studio.ProgressTrack.Color">#343D50</Color>
     <Color x:Key="Studio.Success.Color">#66D6A3</Color>
+    <Color x:Key="Studio.Green.Color">#66D6A3</Color>
     <Color x:Key="Studio.Warning.Color">#F2B866</Color>
     <Color x:Key="Studio.Error.Color">#FF777F</Color>
 
@@ -32,6 +33,7 @@
     <SolidColorBrush x:Key="Studio.Divider" Color="{StaticResource Studio.Divider.Color}" />
     <SolidColorBrush x:Key="Studio.ProgressTrack" Color="{StaticResource Studio.ProgressTrack.Color}" />
     <SolidColorBrush x:Key="Studio.Success" Color="{StaticResource Studio.Success.Color}" />
+    <SolidColorBrush x:Key="Studio.Green" Color="{StaticResource Studio.Green.Color}" />
     <SolidColorBrush x:Key="Studio.Warning" Color="{StaticResource Studio.Warning.Color}" />
     <SolidColorBrush x:Key="Studio.Error" Color="{StaticResource Studio.Error.Color}" />
 </ResourceDictionary>

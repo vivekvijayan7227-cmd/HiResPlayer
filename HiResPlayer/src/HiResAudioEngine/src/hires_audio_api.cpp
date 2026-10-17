@@ -1,7 +1,10 @@
 #include "hires_audio_api.h"
 #include "hires_dsp_api.h"
 #include "PlaybackController.h"
+#include "FlacDecoder.h"
+#include "PcmSamplePacker.h"
 #include <cstring>
+#include <vector>
 
 HP_API uint32_t HP_CALL hp_api_version(void) {
     return 1;
@@ -326,5 +329,126 @@ HP_API HP_Result HP_CALL hp_get_bluetooth_fidelity_status(
 ) {
     if (!h || !out_status) return HP_INVALID_ARGUMENT;
     return reinterpret_cast<PlaybackController*>(h)->GetBluetoothFidelityStatus(out_status);
+}
+
+// ─── Reference PCM Verification ──────────────────────────────────────────────
+HP_API HP_Result HP_CALL hp_verify_flac_pcm_exact(
+    const wchar_t* flac_path,
+    const wchar_t* wav_path,
+    uint32_t*      out_mismatches,
+    uint64_t*      out_compared_samples
+) {
+    if (!flac_path || !wav_path || !out_mismatches || !out_compared_samples) {
+        return HP_INVALID_ARGUMENT;
+    }
+    *out_mismatches = 0;
+    *out_compared_samples = 0;
+
+    // 1. Read and parse reference WAV file
+    FILE* fw = _wfopen(wav_path, L"rb");
+    if (!fw) return HP_FILE_ERROR;
+
+    uint8_t header[12];
+    if (fread(header, 1, 12, fw) != 12 || std::memcmp(header, "RIFF", 4) != 0 || std::memcmp(header + 8, "WAVE", 4) != 0) {
+        fclose(fw);
+        return HP_UNSUPPORTED_SOURCE;
+    }
+
+    uint16_t wav_channels = 0;
+    uint32_t wav_sample_rate = 0;
+    uint16_t wav_bits = 0;
+    std::vector<uint8_t> wav_data;
+
+    while (!feof(fw)) {
+        char chunk_id[4];
+        uint32_t chunk_size = 0;
+        if (fread(chunk_id, 1, 4, fw) != 4) break;
+        if (fread(&chunk_size, 4, 1, fw) != 1) break;
+
+        if (std::memcmp(chunk_id, "fmt ", 4) == 0) {
+            uint16_t audio_format = 0;
+            if (fread(&audio_format, 2, 1, fw) != 1) { fclose(fw); return HP_FILE_ERROR; }
+            if (fread(&wav_channels, 2, 1, fw) != 1) { fclose(fw); return HP_FILE_ERROR; }
+            if (fread(&wav_sample_rate, 4, 1, fw) != 1) { fclose(fw); return HP_FILE_ERROR; }
+            uint32_t byte_rate = 0;
+            if (fread(&byte_rate, 4, 1, fw) != 1) { fclose(fw); return HP_FILE_ERROR; }
+            uint16_t block_align = 0;
+            if (fread(&block_align, 2, 1, fw) != 1) { fclose(fw); return HP_FILE_ERROR; }
+            if (fread(&wav_bits, 2, 1, fw) != 1) { fclose(fw); return HP_FILE_ERROR; }
+            if (chunk_size > 16) {
+                _fseeki64(fw, chunk_size - 16, SEEK_CUR);
+            }
+        } else if (std::memcmp(chunk_id, "data", 4) == 0) {
+            wav_data.resize(chunk_size);
+            size_t bytes_read = fread(wav_data.data(), 1, chunk_size, fw);
+            if (bytes_read != chunk_size) {
+                wav_data.resize(bytes_read);
+            }
+            break;
+        } else {
+            _fseeki64(fw, chunk_size, SEEK_CUR);
+        }
+    }
+    fclose(fw);
+
+    if (wav_data.empty() || wav_channels == 0 || wav_bits == 0) {
+        return HP_FILE_ERROR;
+    }
+
+    // 2. Open FLAC file and verify metadata match
+    FlacDecoder decoder;
+    std::string err;
+    if (!decoder.Open(flac_path, err)) {
+        return HP_FILE_ERROR;
+    }
+    const auto& meta = decoder.metadata();
+    if (meta.channels != wav_channels || meta.sample_rate != wav_sample_rate || meta.bits_per_sample != wav_bits) {
+        return HP_UNSUPPORTED_OUTPUT_FORMAT;
+    }
+
+    // 3. Decode FLAC and accumulate packed PCM frames
+    PackParams pack_params;
+    pack_params.valid_bits = meta.bits_per_sample;
+    pack_params.container_bits = (meta.bits_per_sample == 24) ? 24 : meta.bits_per_sample;
+    pack_params.output_float = false;
+
+    const uint32_t bytes_per_sample = pack_params.container_bits / 8;
+    const uint32_t bytes_per_frame = meta.channels * bytes_per_sample;
+
+    std::vector<uint8_t> flac_pcm;
+    flac_pcm.reserve(wav_data.size());
+
+    std::vector<uint8_t> block_buf;
+    decoder.SetPcmCallback([&](const int32_t* const* samples, uint32_t ch, uint32_t spc, uint32_t) {
+        size_t block_bytes = spc * bytes_per_frame;
+        if (block_buf.size() < block_bytes) {
+            block_buf.resize(block_bytes);
+        }
+        pack_frames(block_buf.data(), samples, ch, spc, pack_params);
+        flac_pcm.insert(flac_pcm.end(), block_buf.data(), block_buf.data() + block_bytes);
+    });
+
+    if (!decoder.DecodeAll(err) || decoder.HasError()) {
+        return HP_DECODER_ERROR;
+    }
+
+    // 4. Sample-by-sample bit-exact verification
+    size_t compare_bytes = (flac_pcm.size() < wav_data.size()) ? flac_pcm.size() : wav_data.size();
+    uint64_t total_samples = compare_bytes / bytes_per_sample;
+    uint32_t mismatches = 0;
+
+    for (size_t i = 0; i < compare_bytes; i += bytes_per_sample) {
+        if (std::memcmp(flac_pcm.data() + i, wav_data.data() + i, bytes_per_sample) != 0) {
+            mismatches++;
+        }
+    }
+
+    if (flac_pcm.size() != wav_data.size()) {
+        mismatches += static_cast<uint32_t>(std::abs(static_cast<int64_t>(flac_pcm.size()) - static_cast<int64_t>(wav_data.size())) / bytes_per_sample);
+    }
+
+    *out_compared_samples = total_samples;
+    *out_mismatches = mismatches;
+    return HP_OK;
 }
 

@@ -42,6 +42,7 @@
             <SolidColorBrush x:Key="AccentCyanBrush" Color="{StaticResource Studio.Blue.Color}"/>
             <SolidColorBrush x:Key="AccentCyanLightBrush" Color="#93C9FF"/>
             <SolidColorBrush x:Key="AccentGreenBrush" Color="{StaticResource Studio.Success.Color}"/>
+            <SolidColorBrush x:Key="Studio.Green" Color="{StaticResource Studio.Success.Color}"/>
             <SolidColorBrush x:Key="AccentAmberBrush" Color="{StaticResource Studio.Warning.Color}"/>
             <SolidColorBrush x:Key="AccentRedBrush" Color="{StaticResource Studio.Error.Color}"/>
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource Studio.TextPrimary.Color}"/>

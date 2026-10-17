@@ -443,6 +443,26 @@
                                   KeyDown="LstTracks_KeyDown"
                                   ItemContainerStyle="{StaticResource Studio.TrackListItem}"
                                   Padding="0">
+                            <ListView.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource Studio.SurfaceElevated}"
+                                                    BorderBrush="{StaticResource Studio.Divider}"
+                                                    BorderThickness="0,0,0,1"
+                                                    Padding="12,6" Margin="0,4,0,2" CornerRadius="4">
+                                                <DockPanel>
+                                                    <TextBlock Text="📁 " FontSize="12" Margin="0,0,4,0" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11.5"
+                                                               Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding ItemCount, StringFormat=' ({0} tracks)'}" FontSize="11"
+                                                               Foreground="{StaticResource Studio.TextMuted}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                                </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </ListView.GroupStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate>
                                     <Grid Margin="0,2">
@@ -1506,19 +1526,22 @@
 
                 <!-- Right: Output Device & Format Info, Queue Toggle, Volume Slider -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0" HorizontalAlignment="Right">
-                        <TextBlock x:Name="BarDevicePill" Text="Detecting device..."
-                                   Foreground="{StaticResource Studio.TextPrimary}" FontSize="11" FontWeight="Medium"
-                                   Cursor="Hand" ToolTip="Click to select Audio Output Device or WASAPI Mode"
-                                   MouseUp="BarDevicePill_MouseUp"
-                                   HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="220"/>
-                        <TextBlock x:Name="BarFormatInfo" Text="Shared Mode"
-                                   Foreground="{StaticResource Studio.TextMuted}" FontSize="10.5" FontWeight="SemiBold"
-                                   Cursor="Hand" ToolTip="Click to configure Output Format &amp; WASAPI Mode"
-                                   MouseUp="BarDevicePill_MouseUp"
-                                   HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="220" Margin="0,2,0,0"/>
-                        <TextBlock x:Name="BarModeBadge" Visibility="Collapsed" MouseUp="BarModeBadge_MouseUp"/>
-                    </StackPanel>
+                    <!-- Accessible Audio Device & Output Format Selector Button -->
+                    <Button x:Name="BtnDockDevice" Click="BtnDockDevice_Click" Focusable="True"
+                            Background="Transparent" BorderThickness="0" Padding="4,2" Margin="0,0,12,0"
+                            Cursor="Hand" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            AutomationProperties.Name="Select Audio Output Device or WASAPI Mode"
+                            ToolTip="Click to select Audio Output Device or configure WASAPI Mode">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock x:Name="BarDevicePill" Text="Detecting device..."
+                                       Foreground="{StaticResource Studio.TextPrimary}" FontSize="11" FontWeight="Medium"
+                                       HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="220"/>
+                            <TextBlock x:Name="BarFormatInfo" Text="Shared Mode"
+                                       Foreground="{StaticResource Studio.TextMuted}" FontSize="10.5" FontWeight="SemiBold"
+                                       HorizontalAlignment="Right" TextAlignment="Right" TextTrimming="CharacterEllipsis" MaxWidth="220" Margin="0,2,0,0"/>
+                            <TextBlock x:Name="BarModeBadge" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Button>
 
                     <!-- Queue Rail Toggle Button -->
                     <Button x:Name="BtnDockNowPlaying" Content="Queue" AutomationProperties.Name="Toggle Queue Rail" ToolTip="Toggle Playing Next Queue Rail"

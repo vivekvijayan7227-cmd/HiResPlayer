@@ -688,6 +688,12 @@ namespace HiResPlayer.Tests
             Assert.Equal(16u, status.SourceValidBits);
             Assert.Equal(2u, status.SourceChannels);
             Assert.Equal(88200UL, status.SourceTotalSamples);
+
+            // True sample-by-sample exact PCM comparison against reference master
+            var (success, mismatches, comparedSamples) = NativeAudioFacade.VerifyFlacAgainstWav(flacFixture, wavFixture);
+            Assert.True(success, "VerifyFlacAgainstWav failed to execute");
+            Assert.True(comparedSamples > 0, "No samples were compared");
+            Assert.Equal(0u, mismatches);
         }
 
         [Fact]
@@ -708,6 +714,12 @@ namespace HiResPlayer.Tests
             Assert.Equal(24u, status.SourceValidBits);
             Assert.Equal(2u, status.SourceChannels);
             Assert.Equal(192000UL, status.SourceTotalSamples);
+
+            // True sample-by-sample exact PCM comparison against 24-bit 96kHz reference master
+            var (success24, mismatches24, comparedSamples24) = NativeAudioFacade.VerifyFlacAgainstWav(flacFixture, wavFixture);
+            Assert.True(success24, "VerifyFlacAgainstWav failed to execute on 24-bit master");
+            Assert.True(comparedSamples24 > 0, "No samples were compared on 24-bit master");
+            Assert.Equal(0u, mismatches24);
         }
 
         [Fact]

@@ -32,7 +32,7 @@ FlacDecoder::~FlacDecoder() {
 
 bool FlacDecoder::Open(const std::wstring& path, std::string& error_out) {
     Close();
-    m_has_error     = false;
+    m_has_error.store(false, std::memory_order_release);
     m_stop_requested.store(false, std::memory_order_relaxed);
     m_seeking.store(false, std::memory_order_relaxed);
     m_meta_ready    = false;
@@ -94,7 +94,7 @@ void FlacDecoder::Close() {
     m_pcm_cb = nullptr;
     m_err_cb = nullptr;
     m_meta = {};
-    m_has_error = false;
+    m_has_error.store(false, std::memory_order_release);
     m_stop_requested.store(false, std::memory_order_relaxed);
     m_seeking.store(false, std::memory_order_relaxed);
 }
@@ -106,13 +106,13 @@ bool FlacDecoder::DecodeAll(std::string& error_out) {
     }
     m_stop_requested.store(false, std::memory_order_relaxed);
     m_seeking.store(false, std::memory_order_relaxed);
-    m_has_error = false;
+    m_has_error.store(false, std::memory_order_release);
     FLAC__StreamDecoderState st = FLAC__stream_decoder_get_state(m_decoder);
     if (st == FLAC__STREAM_DECODER_ABORTED || st == FLAC__STREAM_DECODER_END_OF_STREAM || st == FLAC__STREAM_DECODER_SEEK_ERROR) {
         FLAC__stream_decoder_flush(m_decoder);
     }
     bool ok = FLAC__stream_decoder_process_until_end_of_stream(m_decoder) == FLAC__bool(1);
-    if (!ok || m_has_error) {
+    if (!ok || m_has_error.load(std::memory_order_acquire)) {
         error_out = "FLAC decode error";
         return false;
     }
@@ -124,7 +124,7 @@ bool FlacDecoder::SeekToSample(uint64_t sample_position, std::string& error_out)
         error_out = "Decoder not open";
         return false;
     }
-    m_has_error = false;
+    m_has_error.store(false, std::memory_order_release);
     m_stop_requested.store(false, std::memory_order_relaxed);
     m_seeking.store(true, std::memory_order_release);
     FLAC__StreamDecoderState st = FLAC__stream_decoder_get_state(m_decoder);
@@ -281,7 +281,7 @@ void FlacDecoder::StaticError(
     void* client
 ) {
     auto* self = static_cast<FlacDecoder*>(client);
-    self->m_has_error = true;
+    self->m_has_error.store(true, std::memory_order_release);
     if (self->m_err_cb) {
         self->m_err_cb(FLAC__StreamDecoderErrorStatusString[status]);
     }

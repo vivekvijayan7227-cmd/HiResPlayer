@@ -24,6 +24,19 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
+    - name: Set up MSVC Developer Command Prompt
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Install libFLAC via vcpkg
+      run: |
+        vcpkg install flac:x64-windows
+
+    - name: Build Native Audio Engine from C++ Source
+      shell: powershell
+      run: |
+        $env:FLAC_ROOT = "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows"
+        powershell -ExecutionPolicy Bypass -File HiResPlayer/scripts/build_engine.ps1 -Clean
+
     - name: Restore Managed Solution
       run: dotnet restore HiResPlayer/HiResPlayer.slnx
 

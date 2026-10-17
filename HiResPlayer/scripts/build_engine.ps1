@@ -86,11 +86,14 @@ if ($Clean -and (Test-Path $engineBuild)) {
     Remove-Item $engineBuild -Recurse -Force
 }
 
-# ── CMake Configure if needed ─────────────────────────────────────────────────
 if (-not (Test-Path (Join-Path $engineBuild "build.ninja"))) {
     Write-Host "Configuring CMake with Ninja generator..." -ForegroundColor Green
     New-Item -ItemType Directory -Path $engineBuild -Force | Out-Null
-    & $CmakeExe -B $engineBuild -S $engineSrc -G Ninja -DCMAKE_BUILD_TYPE=Release
+    $cmakeArgs = @("-B", $engineBuild, "-S", $engineSrc, "-G", "Ninja", "-DCMAKE_BUILD_TYPE=Release")
+    if ($env:FLAC_ROOT) {
+        $cmakeArgs += "-DFLAC_ROOT=$($env:FLAC_ROOT)"
+    }
+    & $CmakeExe @cmakeArgs
     if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed with exit code $LASTEXITCODE" }
 }
 

@@ -350,5 +350,13 @@ namespace HiResPlayer.Infrastructure.Native
             IntPtr handle,
             ref HP_BluetoothFidelityStatusV1 status
         );
+
+        [LibraryImport(LibName, EntryPoint = "hp_verify_flac_pcm_exact", StringMarshalling = StringMarshalling.Utf16)]
+        public static partial int VerifyFlacPcmExact(
+            string flacPath,
+            string wavPath,
+            out uint outMismatches,
+            out ulong outComparedSamples
+        );
     }
 }

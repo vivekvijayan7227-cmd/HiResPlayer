@@ -88,7 +88,7 @@ PlaybackController::PlaybackController()
                         m_dsp_graph.ProcessFrame(l, r);
                         float mono_out = 0.5f * (l + r);
                         int32_t is = std::clamp(static_cast<int32_t>(std::round(mono_out < 0 ? mono_out * 8388608.0f : mono_out * 8388607.0f)), -8388608, 8388607);
-                        s[i] = is << 8;
+                        s[i] = static_cast<int32_t>(static_cast<uint32_t>(is) << 8);
                     }
                     left_buf[i]  = l;
                     right_buf[i] = r;
@@ -101,8 +101,8 @@ PlaybackController::PlaybackController()
                         m_dsp_graph.ProcessFrame(l, r);
                         int32_t il = std::clamp(static_cast<int32_t>(std::round(l < 0 ? l * 8388608.0f : l * 8388607.0f)), -8388608, 8388607);
                         int32_t ir = std::clamp(static_cast<int32_t>(std::round(r < 0 ? r * 8388608.0f : r * 8388607.0f)), -8388608, 8388607);
-                        s[i * 2]     = il << 8;
-                        s[i * 2 + 1] = ir << 8;
+                        s[i * 2]     = static_cast<int32_t>(static_cast<uint32_t>(il) << 8);
+                        s[i * 2 + 1] = static_cast<int32_t>(static_cast<uint32_t>(ir) << 8);
                     }
                     left_buf[i]  = l;
                     right_buf[i] = r;
@@ -116,8 +116,8 @@ PlaybackController::PlaybackController()
                         m_dsp_graph.ProcessFrame(l, r);
                         int32_t il = std::clamp(static_cast<int32_t>(std::round(l < 0 ? l * 8388608.0f : l * 8388607.0f)), -8388608, 8388607);
                         int32_t ir = std::clamp(static_cast<int32_t>(std::round(r < 0 ? r * 8388608.0f : r * 8388607.0f)), -8388608, 8388607);
-                        s[base]     = il << 8;
-                        s[base + 1] = ir << 8;
+                        s[base]     = static_cast<int32_t>(static_cast<uint32_t>(il) << 8);
+                        s[base + 1] = static_cast<int32_t>(static_cast<uint32_t>(ir) << 8);
                     }
                     left_buf[i]  = l;
                     right_buf[i] = r;
@@ -135,7 +135,7 @@ PlaybackController::PlaybackController()
                         m_dsp_graph.ProcessFrame(l, r);
                         float mono_out = 0.5f * (l + r);
                         int32_t is = std::clamp(static_cast<int32_t>(std::round(mono_out < 0 ? mono_out * 32768.0f : mono_out * 32767.0f)), -32768, 32767);
-                        s[i] = is << 16;
+                        s[i] = static_cast<int32_t>(static_cast<uint32_t>(is) << 16);
                     }
                     left_buf[i]  = l;
                     right_buf[i] = r;
@@ -148,8 +148,8 @@ PlaybackController::PlaybackController()
                         m_dsp_graph.ProcessFrame(l, r);
                         int32_t il = std::clamp(static_cast<int32_t>(std::round(l < 0 ? l * 32768.0f : l * 32767.0f)), -32768, 32767);
                         int32_t ir = std::clamp(static_cast<int32_t>(std::round(r < 0 ? r * 32768.0f : r * 32767.0f)), -32768, 32767);
-                        s[i * 2]     = il << 16;
-                        s[i * 2 + 1] = ir << 16;
+                        s[i * 2]     = static_cast<int32_t>(static_cast<uint32_t>(il) << 16);
+                        s[i * 2 + 1] = static_cast<int32_t>(static_cast<uint32_t>(ir) << 16);
                     }
                     left_buf[i]  = l;
                     right_buf[i] = r;
@@ -163,8 +163,8 @@ PlaybackController::PlaybackController()
                         m_dsp_graph.ProcessFrame(l, r);
                         int32_t il = std::clamp(static_cast<int32_t>(std::round(l < 0 ? l * 32768.0f : l * 32767.0f)), -32768, 32767);
                         int32_t ir = std::clamp(static_cast<int32_t>(std::round(r < 0 ? r * 32768.0f : r * 32767.0f)), -32768, 32767);
-                        s[base]     = il << 16;
-                        s[base + 1] = ir << 16;
+                        s[base]     = static_cast<int32_t>(static_cast<uint32_t>(il) << 16);
+                        s[base + 1] = static_cast<int32_t>(static_cast<uint32_t>(ir) << 16);
                     }
                     left_buf[i]  = l;
                     right_buf[i] = r;
@@ -442,29 +442,39 @@ HP_Result PlaybackController::Play() {
     std::string seek_err;
     if (m_seek_requested.load()) {
         uint64_t target = m_seek_target.load();
-        m_decoder.SeekToSample(target, seek_err);
+        if (!m_decoder.SeekToSample(target, seek_err)) {
+            FirePlaybackEvent(HP_EVT_ERROR, HP_STATE_STOPPED, -1, 0);
+            return HP_DECODER_ERROR;
+        }
         m_renderer.SetRenderedSamples(target);
         m_seek_requested.store(false);
     } else {
-        m_decoder.SeekToSample(0, seek_err);
+        if (!m_decoder.SeekToSample(0, seek_err)) {
+            FirePlaybackEvent(HP_EVT_ERROR, HP_STATE_STOPPED, -1, 0);
+            return HP_DECODER_ERROR;
+        }
         m_renderer.SetRenderedSamples(0);
     }
+
+    m_is_preparing.store(true);
+    m_decoder_finished.store(false);
+    UpdateState(HP_STATE_LOADING);
 
     // Launch decoding thread to begin prebuffering PCM
     m_decode_thread = std::thread([this]() {
         this->DecodeThreadProc();
     });
 
-    // Frame-aligned prebuffering loop: wait until ~100ms of PCM is buffered before engaging DAC
+    // Frame-aligned prebuffering loop: wait until ~150ms of PCM is buffered before engaging DAC
     const size_t target_prebuffer_bytes = std::clamp(
-        static_cast<size_t>((static_cast<uint64_t>(dsp_sample_rate) * frame_bytes * 100) / 1000),
-        frame_bytes * 16,
+        static_cast<size_t>((static_cast<uint64_t>(dsp_sample_rate) * frame_bytes * 150) / 1000),
+        frame_bytes * 32,
         m_ring_buffer.capacity() / 2
     );
 
     auto prebuffer_start = std::chrono::steady_clock::now();
     while (!m_decode_stop.load() && m_ring_buffer.available_read() < target_prebuffer_bytes) {
-        if (m_decoder.HasError() || !m_decode_thread.joinable() || m_state.load() == HP_STATE_STOPPED) {
+        if (m_decoder.HasError() || !m_decode_thread.joinable() || (m_state.load() == HP_STATE_STOPPED && !m_is_preparing.load()) || m_decoder_finished.load()) {
             break;
         }
         if (std::chrono::steady_clock::now() - prebuffer_start > std::chrono::milliseconds(500)) {
@@ -472,6 +482,7 @@ HP_Result PlaybackController::Play() {
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
+    m_is_preparing.store(false);
 
     // Engage hardware WASAPI stream render thread
     if (!m_renderer.StartStream(err)) {
@@ -495,6 +506,7 @@ HP_Result PlaybackController::Pause() {
 
 HP_Result PlaybackController::Stop() {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
+    m_is_preparing.store(false);
     JoinDecodeThread();
     m_renderer.Stop();
     UpdateState(HP_STATE_STOPPED);
@@ -524,7 +536,10 @@ HP_Result PlaybackController::Seek(uint64_t sample_pos) {
 
     // 2. Perform seek on the decoder while it is completely idle
     std::string err;
-    m_decoder.SeekToSample(sample_pos, err);
+    if (!m_decoder.SeekToSample(sample_pos, err)) {
+        FirePlaybackEvent(HP_EVT_ERROR, state, -1, m_renderer.GetRenderedSamples());
+        return HP_DECODER_ERROR;
+    }
 
     // 3. Reset ring buffer with new generation to flush old buffered frames
     m_current_gen = m_ring_buffer.reset(m_current_gen + 1);
@@ -612,14 +627,8 @@ void PlaybackController::DecodeThreadProc() {
         is_output_float = (std::memcmp(&actual_wfex.SubFormat, &kGuidFloat, sizeof(GUID)) == 0);
     } else if (actual_wfex.Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
         is_output_float = true;
-    } else if (m_actual_mode == HP_SHARED && actual_wfex.Format.wBitsPerSample == 32) {
-        static const GUID kGuidPCM = {
-            0x00000001, 0x0000, 0x0010,
-            { 0x80, 0x00, 0x00, 0xAA, 0x00, 0x38, 0x9B, 0x71 }
-        };
-        if (std::memcmp(&actual_wfex.SubFormat, &kGuidPCM, sizeof(GUID)) != 0) {
-            is_output_float = true;
-        }
+    } else {
+        is_output_float = false;
     }
 
     const uint32_t target_container_bits = (actual_wfex.Format.wBitsPerSample > 0)
@@ -763,6 +772,7 @@ void PlaybackController::DecodeThreadProc() {
 
     std::string err;
     bool decode_ok = m_decoder.DecodeAll(err);
+    m_decoder_finished.store(true);
 
     // Wait until the audio renderer has drained all buffered PCM to the hardware DAC
     while (!m_decode_stop.load() && m_ring_buffer.available_read() > 0) {
