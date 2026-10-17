@@ -40,14 +40,27 @@ jobs:
         $env:FLAC_ROOT = "C:\vcpkg\installed\x64-windows"
         powershell -ExecutionPolicy Bypass -File HiResPlayer/scripts/build_engine.ps1 -Clean
 
+    - name: Clear conflicting MSVC Platform variable
+      shell: powershell
+      run: |
+        "Platform=" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
     - name: Restore Managed Solution
-      run: dotnet restore HiResPlayer/HiResPlayer.slnx
+      shell: powershell
+      run: |
+        Remove-Item Env:\Platform -ErrorAction SilentlyContinue
+        dotnet restore HiResPlayer/HiResPlayer.slnx
 
     - name: Build Managed Solution (Release)
-      run: dotnet build HiResPlayer/HiResPlayer.slnx -c Release --no-restore
+      shell: powershell
+      run: |
+        Remove-Item Env:\Platform -ErrorAction SilentlyContinue
+        dotnet build HiResPlayer/HiResPlayer.slnx -c Release --no-restore
 
     - name: Run Unit & Integration Tests (Release)
+      shell: powershell
       run: |
+        Remove-Item Env:\Platform -ErrorAction SilentlyContinue
         dotnet test HiResPlayer/tests/ManagedTests/HiResPlayer.Tests.csproj -c Release --no-build --verbosity normal --logger "trx;LogFileName=test_results.trx"
 
     - name: Upload Test Results
@@ -58,15 +71,21 @@ jobs:
         path: HiResPlayer/tests/ManagedTests/TestResults/*.trx
 
     - name: Package Release Distribution
+      shell: powershell
       run: |
+        Remove-Item Env:\Platform -ErrorAction SilentlyContinue
         powershell -ExecutionPolicy Bypass -File HiResPlayer/scripts/publish.ps1 -Configuration Release
 
     - name: Build Standalone Setup Installer
+      shell: powershell
       run: |
+        Remove-Item Env:\Platform -ErrorAction SilentlyContinue
         powershell -ExecutionPolicy Bypass -File HiResPlayer/scripts/build_installer.ps1 -Configuration Release -Version 1.0.1
 
     - name: Upload Installer Artifact
       uses: actions/upload-artifact@v4
       with:
         name: HiResPlayer-Setup-v1.0.1
-        path: Installer/HiResPlayer-Setup-v1.0.1.exe
+        path: |
+          Installer/*.exe
+          HiResPlayer/Installer/*.exe
