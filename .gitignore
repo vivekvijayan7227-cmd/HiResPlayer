@@ -115,3 +115,4 @@ HiResPlayer/scripts/test_installer_execution.ps1
 build_obsidian_icon.py
 test_taskbar.ps1
 .DirectoryName
+Review_Extracted/

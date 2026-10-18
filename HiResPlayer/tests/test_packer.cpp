@@ -1,8 +1,8 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include "d:/AudioPlayer/HiResPlayer/src/HiResAudioEngine/src/PcmSamplePacker.h"
-#include "d:/AudioPlayer/HiResPlayer/src/HiResAudioEngine/src/AudioResampler.h"
+#include "../src/HiResAudioEngine/src/PcmSamplePacker.h"
+#include "../src/HiResAudioEngine/src/AudioResampler.h"
 
 int main() {
     PackParams p;

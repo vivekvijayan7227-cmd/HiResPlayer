@@ -31,7 +31,8 @@ def create_sine_wav(path, sample_rate, bit_depth, channels, duration_sec, freq=4
         wav.writeframes(frames)
 
 def main():
-    fixtures_dir = "d:/AudioPlayer/HiResPlayer/tests/fixtures"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    fixtures_dir = os.path.join(script_dir, "Fixtures")
     os.makedirs(fixtures_dir, exist_ok=True)
     
     # 1. 16-bit 44.1kHz Stereo Sine Wave
@@ -45,7 +46,7 @@ def main():
     create_sine_wav(wav_24_96, 96000, 24, 2, 2.0, 1000.0)
     
     # Convert to FLAC using built flac-1.4.3 test utility or python flac
-    flac_exe = "d:/AudioPlayer/flac-1.4.3/build/objs/flac.exe"
+    flac_exe = os.path.join(script_dir, "..", "..", "flac-1.4.3", "build", "objs", "flac.exe")
     # If flac.exe not built (we only built lib), write basic wav-to-flac or test directly
     print(f"Created reference WAV fixtures:\n  {wav_16_44}\n  {wav_24_96}")
 

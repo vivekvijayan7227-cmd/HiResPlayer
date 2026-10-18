@@ -5,6 +5,7 @@
 #include <cmath>
 #include "../src/HiResAudioEngine/include/hires_audio_api.h"
 #include "../src/HiResAudioEngine/include/hires_dsp_api.h"
+#include "test_fixtures.h"
 
 int main() {
     std::cout << "Testing Studio DSP Engine mode..." << std::endl;
@@ -12,7 +13,8 @@ int main() {
     assert(h != nullptr);
 
     // Open standard 44.1 kHz FLAC (which will require 44.1 -> 48.0 kHz resampling in Studio DSP Engine)
-    const wchar_t* path = L"d:\\AudioPlayer\\HiResPlayer\\tests\\Fixtures\\test_16bit_44k.flac";
+    std::wstring path_str = get_test_fixture_path(L"test_16bit_44k.flac");
+    const wchar_t* path = path_str.c_str();
     HP_Result res = hp_open_flac(h, path);
     assert(res == HP_OK);
 

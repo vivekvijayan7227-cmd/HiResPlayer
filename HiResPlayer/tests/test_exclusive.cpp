@@ -1,6 +1,6 @@
 #include <iostream>
 #include <vector>
-#include "d:/AudioPlayer/HiResPlayer/src/HiResAudioEngine/src/PcmSamplePacker.h"
+#include "../src/HiResAudioEngine/src/PcmSamplePacker.h"
 
 int main() {
     // 16-bit Exclusive

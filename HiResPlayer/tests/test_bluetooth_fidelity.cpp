@@ -5,6 +5,7 @@
 #include "../src/HiResAudioEngine/include/hires_audio_api.h"
 #include "../src/HiResAudioEngine/include/hires_dsp_api.h"
 #include "../src/HiResAudioEngine/src/BluetoothDeviceService.h"
+#include "test_fixtures.h"
 
 int main() {
     std::cout << "==========================================================" << std::endl;
@@ -78,7 +79,8 @@ int main() {
     std::cout << "[TEST 3] Bluetooth Fidelity Mode enable/disable toggle -> PASSED." << std::endl;
 
     // 4. Open 16-bit 44.1kHz FLAC and verify format matching & PCM transparency
-    const wchar_t* path = L"d:\\AudioPlayer\\HiResPlayer\\tests\\Fixtures\\test_16bit_44k.flac";
+    std::wstring path_str = get_test_fixture_path(L"test_16bit_44k.flac");
+    const wchar_t* path = path_str.c_str();
     HP_Result res_open = hp_open_flac(h, path);
     assert(res_open == HP_OK);
     std::cout << "[TEST 4] Open test 16-bit / 44.1 kHz FLAC track -> PASSED." << std::endl;

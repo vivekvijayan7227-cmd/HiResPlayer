@@ -5,6 +5,7 @@
 #include <chrono>
 #include "hires_audio_api.h"
 #include "hires_dsp_api.h"
+#include "test_fixtures.h"
 
 int main() {
     std::wcout << L"=== HiResAudioEngine Verification Test (M1/M2/M7/M8) ===" << std::endl;
@@ -39,7 +40,8 @@ int main() {
     }
 
     // 4. Open and Verify 16-bit 44.1kHz FLAC
-    const wchar_t* flac_16 = L"d:\\AudioPlayer\\HiResPlayer\\tests\\fixtures\\test_16bit_44k.flac";
+    std::wstring flac_16_str = get_test_fixture_path(L"test_16bit_44k.flac");
+    const wchar_t* flac_16 = flac_16_str.c_str();
     HP_Result res = hp_open_flac(engine, flac_16);
     std::wcout << L"Opening 16-bit 44.1kHz FLAC: Result = " << res << std::endl;
     if (res != HP_OK) {
@@ -76,6 +78,8 @@ int main() {
     // 8. Test Short Playback Run
     res = hp_play(engine);
     std::wcout << L"Starting Playback: Result = " << res << std::endl;
+    hp_get_status(engine, &status);
+    std::wcout << L"last_hresult = 0x" << std::hex << (uint32_t)status.last_hresult << std::dec << std::endl;
 
     if (res == HP_OK) {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));

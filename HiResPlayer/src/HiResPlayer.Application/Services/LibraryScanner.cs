@@ -34,12 +34,13 @@ namespace HiResPlayer.Application.Services
             var results = new List<TrackMetadata>();
             if (!Directory.Exists(folderPath)) return results;
 
-            var flacFiles = Directory.GetFiles(folderPath, "*.flac", SearchOption.AllDirectories);
-            int total = flacFiles.Length;
-            int current = 0;
-
             await Task.Run(() =>
             {
+                var flacFiles = new List<string>();
+                EnumerateFilesResilient(folderPath, "*.flac", flacFiles, cancellationToken);
+                int total = flacFiles.Count;
+                int current = 0;
+
                 foreach (var file in flacFiles)
                 {
                     if (cancellationToken.IsCancellationRequested) break;
@@ -60,6 +61,46 @@ namespace HiResPlayer.Application.Services
             }, cancellationToken);
 
             return results;
+        }
+
+        private static void EnumerateFilesResilient(
+            string root,
+            string searchPattern,
+            List<string> results,
+            CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested) return;
+
+            try
+            {
+                var files = Directory.GetFiles(root, searchPattern);
+                results.AddRange(files);
+            }
+            catch (UnauthorizedAccessException) { /* Skip inaccessible directory */ }
+            catch (DirectoryNotFoundException) { /* Skip missing directory */ }
+            catch (PathTooLongException) { /* Skip overlong path */ }
+            catch (IOException) { /* Skip IO errors */ }
+
+            try
+            {
+                var subdirs = Directory.GetDirectories(root);
+                foreach (var subdir in subdirs)
+                {
+                    if (cancellationToken.IsCancellationRequested) break;
+                    try
+                    {
+                        var dirInfo = new DirectoryInfo(subdir);
+                        if ((dirInfo.Attributes & FileAttributes.ReparsePoint) != 0) continue;
+                    }
+                    catch { }
+
+                    EnumerateFilesResilient(subdir, searchPattern, results, cancellationToken);
+                }
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (DirectoryNotFoundException) { }
+            catch (PathTooLongException) { }
+            catch (IOException) { }
         }
 
         private static TrackMetadata ReadFlacBasicMetadata(string filePath)

@@ -2,7 +2,7 @@
 #include <vector>
 #include <cmath>
 #include <cassert>
-#include "d:/AudioPlayer/HiResPlayer/src/HiResAudioEngine/src/AudioResampler.h"
+#include "../src/HiResAudioEngine/src/AudioResampler.h"
 
 int main() {
     AudioResampler resampler;

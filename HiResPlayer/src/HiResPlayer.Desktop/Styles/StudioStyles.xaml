@@ -111,6 +111,8 @@
                 <ControlTemplate TargetType="{x:Type ListBoxItem}">
                     <Border x:Name="Row"
                             Background="{TemplateBinding Background}"
+                            BorderThickness="1.5"
+                            BorderBrush="Transparent"
                             CornerRadius="8"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter />
@@ -125,6 +127,10 @@
                         <Trigger Property="IsKeyboardFocusWithin" Value="True">
                             <Setter TargetName="Row" Property="BorderBrush" Value="{StaticResource Studio.Blue}" />
                         </Trigger>
+                        <DataTrigger Binding="{Binding IsUnavailable}" Value="True">
+                            <Setter TargetName="Row" Property="Opacity" Value="0.45" />
+                            <Setter Property="ToolTip" Value="File currently offline / unavailable (removable drive disconnected)" />
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>

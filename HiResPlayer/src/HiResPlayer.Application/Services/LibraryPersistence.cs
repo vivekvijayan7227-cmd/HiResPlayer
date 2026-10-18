@@ -37,9 +37,28 @@ namespace HiResPlayer.Application.Services
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(_storePath)!);
+                string? dir = Path.GetDirectoryName(_storePath);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
                 string json = JsonSerializer.Serialize(new PersistedLibrary { Tracks = new List<PersistedTrack>(tracks) }, _jsonOpts);
-                File.WriteAllText(_storePath, json);
+                string tempPath = _storePath + ".tmp";
+                string backupPath = _storePath + ".bak";
+
+                File.WriteAllText(tempPath, json);
+
+                if (File.Exists(_storePath))
+                {
+                    try
+                    {
+                        File.Copy(_storePath, backupPath, overwrite: true);
+                    }
+                    catch { /* Best effort backup */ }
+                    File.Move(tempPath, _storePath, overwrite: true);
+                }
+                else
+                {
+                    File.Move(tempPath, _storePath);
+                }
             }
             catch
             {
@@ -49,17 +68,37 @@ namespace HiResPlayer.Application.Services
 
         public List<PersistedTrack> Load()
         {
+            // Try primary store
             try
             {
-                if (!File.Exists(_storePath)) return new();
-                string json = File.ReadAllText(_storePath);
-                var lib = JsonSerializer.Deserialize<PersistedLibrary>(json, _jsonOpts);
-                return lib?.Tracks ?? new();
+                if (File.Exists(_storePath))
+                {
+                    string json = File.ReadAllText(_storePath);
+                    var lib = JsonSerializer.Deserialize<PersistedLibrary>(json, _jsonOpts);
+                    if (lib?.Tracks != null) return lib.Tracks;
+                }
             }
             catch
             {
-                return new();
+                // Primary store corrupted, try backup below
             }
+
+            // Fallback to .bak if available
+            try
+            {
+                string backupPath = _storePath + ".bak";
+                if (File.Exists(backupPath))
+                {
+                    string json = File.ReadAllText(backupPath);
+                    var lib = JsonSerializer.Deserialize<PersistedLibrary>(json, _jsonOpts);
+                    if (lib?.Tracks != null) return lib.Tracks;
+                }
+            }
+            catch
+            {
+            }
+
+            return new();
         }
 
         /// <summary>

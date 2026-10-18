@@ -300,7 +300,7 @@ echo HiResPlayer uninstallation complete.
                 // Add/Remove Programs entry
                 using var uninstKey = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\HiResPlayer");
                 uninstKey.SetValue("DisplayName", "HiRes Player — Studio Master");
-                uninstKey.SetValue("DisplayVersion", "1.0.0");
+                uninstKey.SetValue("DisplayVersion", "1.0.1");
                 uninstKey.SetValue("Publisher", "HiResPlayer Audio Technologies");
                 uninstKey.SetValue("DisplayIcon", $"{exePath},0");
                 uninstKey.SetValue("InstallLocation", targetDir);

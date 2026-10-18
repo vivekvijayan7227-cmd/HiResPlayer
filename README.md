@@ -41,7 +41,7 @@
 
 ### 🎛️ 10-Band Studio Graphic Equalizer
 - **Mastering-Grade Digital Biquad Filters:** 10 precision standard ISO frequency bands (31 Hz, 62 Hz, 125 Hz, 250 Hz, 500 Hz, 1 kHz, 2 kHz, 4 kHz, 8 kHz, 16 kHz).
-- **Linear-Phase Preamp & Attenuation:** Dynamic ±12 dB slider control with software headroom management to prevent digital inter-sample clipping.
+- **Low-Latency Minimum-Phase IIR Preamp & Attenuation:** Dynamic ±12 dB slider control with software headroom management to prevent digital inter-sample clipping.
 - **Acoustic Presets:** Instant recall for Flat, Bass Boost, Vocal Enhance, Acoustic, Studio Monitor, Classical, and Custom user presets.
 
 ### 🎙️ Focus Studio (Vocal Isolation & Mastering Audition)
@@ -144,17 +144,24 @@ HiResPlayer v1.0.1 incorporates extensive native engine hardening and architectu
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|:---|:---|
-| <kbd>Space</kbd> | Play / Pause |
-| <kbd>Ctrl</kbd> + <kbd>→</kbd> | Next Track |
-| <kbd>Ctrl</kbd> + <kbd>←</kbd> | Previous Track |
-| <kbd>↑</kbd> | Volume Up (+5%) |
-| <kbd>↓</kbd> | Volume Down (-5%) |
-| <kbd>M</kbd> | Toggle Mute |
-| <kbd>F</kbd> | Toggle Favorite for active track |
-| <kbd>/</kbd> | Focus Library Search |
-| <kbd>Esc</kbd> | Close Modals / Clear Search |
+| Shortcut | Action | Scope / Context |
+|:---|:---|:---|
+| <kbd>Space</kbd> | Play / Pause | Focused anywhere except active text/buttons |
+| <kbd>Ctrl</kbd> + <kbd>P</kbd> | Play / Pause (Universal) | Global |
+| <kbd>Ctrl</kbd> + <kbd>→</kbd> / <kbd>MediaNextTrack</kbd> | Next Track | Global |
+| <kbd>Ctrl</kbd> + <kbd>←</kbd> / <kbd>MediaPreviousTrack</kbd> | Previous Track | Global |
+| <kbd>Ctrl</kbd> + <kbd>↑</kbd> | Volume Up (+5%) | Universal Device Master Volume |
+| <kbd>Ctrl</kbd> + <kbd>↓</kbd> | Volume Down (-5%) | Universal Device Master Volume |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Volume Up / Down (±5%) | When focus is outside lists/sliders |
+| <kbd>←</kbd> / <kbd>→</kbd> | Seek ±5 seconds | When Seek Slider is focused |
+| <kbd>PageUp</kbd> / <kbd>PageDown</kbd> | Seek ±30 seconds | When Seek Slider is focused |
+| <kbd>Home</kbd> / <kbd>End</kbd> | Seek to Track Start / End | When Seek Slider is focused |
+| <kbd>M</kbd> | Toggle Mute | Global |
+| <kbd>F</kbd> | Toggle Favorite for active track | When focus is not in text boxes |
+| <kbd>/</kbd> | Focus Library Search | Switches to Library view & selects search query |
+| <kbd>Esc</kbd> | Dismiss Overlays / Clear Search | Closes Playlist Modal, Queue Drawer, or clears search query & focus |
+| <kbd>Ctrl</kbd> + <kbd>O</kbd> | Open FLAC File Dialog | Global |
+| <kbd>F11</kbd> | Maximize / Restore Window | Respects Windows monitor working area |
 
 ---
 

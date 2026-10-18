@@ -26,7 +26,21 @@ namespace HiResPlayer.Desktop
     {
         private bool _isPlayingTrack;
         private bool _isFavorite;
+        private bool _isUnavailable;
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        public bool IsUnavailable
+        {
+            get => _isUnavailable;
+            set
+            {
+                if (_isUnavailable != value)
+                {
+                    _isUnavailable = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsUnavailable)));
+                }
+            }
+        }
 
         public string Title { get; set; } = string.Empty;
         public string Artist { get; set; } = string.Empty;
@@ -288,8 +302,8 @@ namespace HiResPlayer.Desktop
                 }
             };
 
-            // ── Keyboard shortcuts ────────────────────────────────────────────
-            KeyDown += MainWindow_KeyDown;
+            // ── Keyboard shortcuts (Focus-aware dispatch in MainWindow.Keyboard.cs) ─
+            InstallPlaybackKeyboardShortcuts();
 
             // ── Initial nav highlight ─────────────────────────────────────────
             SetActiveNav(NavSongs ?? NavLibrary);
@@ -590,7 +604,6 @@ namespace HiResPlayer.Desktop
             var known = new HashSet<string>(_libraryTracks.Select(t => t.FilePath), StringComparer.OrdinalIgnoreCase);
             foreach (var t in saved)
             {
-                if (!File.Exists(t.FilePath)) continue; // skip missing-drive files silently
                 if (known.Contains(t.FilePath)) continue;
                 known.Add(t.FilePath);
 
@@ -605,23 +618,26 @@ namespace HiResPlayer.Desktop
                 ulong samples = t.TotalSamples;
                 byte[]? art = null;
 
-                if (artist == "Unknown Artist" || samples == 0 || genre == "Unknown Genre" || string.IsNullOrWhiteSpace(composer))
+                if (File.Exists(t.FilePath))
                 {
-                    try
+                    if (artist == "Unknown Artist" || samples == 0 || genre == "Unknown Genre" || string.IsNullOrWhiteSpace(composer))
                     {
-                        var fresh = LibraryScanner.ReadFlacMetadata(t.FilePath);
-                        if (!string.IsNullOrWhiteSpace(fresh.Title)) title = fresh.Title;
-                        if (!string.IsNullOrWhiteSpace(fresh.Artist) && fresh.Artist != "Unknown Artist") artist = fresh.Artist;
-                        if (!string.IsNullOrWhiteSpace(fresh.Album) && fresh.Album != "Unknown Album") album = fresh.Album;
-                        if (!string.IsNullOrWhiteSpace(fresh.Genre) && fresh.Genre != "Unknown Genre") genre = fresh.Genre;
-                        if (!string.IsNullOrWhiteSpace(fresh.Composer)) composer = fresh.Composer;
-                        if (fresh.SampleRate > 0) rate = fresh.SampleRate;
-                        if (fresh.BitsPerSample > 0) bits = fresh.BitsPerSample;
-                        if (fresh.Channels > 0) ch = fresh.Channels;
-                        if (fresh.TotalSamples > 0) samples = fresh.TotalSamples;
-                        art = fresh.ArtworkBytes;
+                        try
+                        {
+                            var fresh = LibraryScanner.ReadFlacMetadata(t.FilePath);
+                            if (!string.IsNullOrWhiteSpace(fresh.Title)) title = fresh.Title;
+                            if (!string.IsNullOrWhiteSpace(fresh.Artist) && fresh.Artist != "Unknown Artist") artist = fresh.Artist;
+                            if (!string.IsNullOrWhiteSpace(fresh.Album) && fresh.Album != "Unknown Album") album = fresh.Album;
+                            if (!string.IsNullOrWhiteSpace(fresh.Genre) && fresh.Genre != "Unknown Genre") genre = fresh.Genre;
+                            if (!string.IsNullOrWhiteSpace(fresh.Composer)) composer = fresh.Composer;
+                            if (fresh.SampleRate > 0) rate = fresh.SampleRate;
+                            if (fresh.BitsPerSample > 0) bits = fresh.BitsPerSample;
+                            if (fresh.Channels > 0) ch = fresh.Channels;
+                            if (fresh.TotalSamples > 0) samples = fresh.TotalSamples;
+                            art = fresh.ArtworkBytes;
+                        }
+                        catch { }
                     }
-                    catch { }
                 }
 
                 AddTrackToLibraryInternal(t.FilePath, title, artist, album,
@@ -1084,14 +1100,24 @@ namespace HiResPlayer.Desktop
                 ArtworkBytes = artwork,
                 Thumbnail = thumb,
                 DurationString = durStr,
-                IsFavorite = _playlistService.IsFavorite(path)
+                IsFavorite = _playlistService.IsFavorite(path),
+                IsUnavailable = !File.Exists(path)
             };
             _libraryTracks.Add(item);
         }
 
         private void PlayTrack(TrackViewItem track, bool switchToNowPlaying = false)
         {
+            if (!File.Exists(track.FilePath))
+            {
+                track.IsUnavailable = true;
+                MessageBox.Show($"File is currently unavailable (drive disconnected or file moved):\n{track.FilePath}",
+                    "Track Unavailable", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            track.IsUnavailable = false;
             _currentTrack = track;
+            _lastAutoAdvancedTrackPath = null;
             _facade.Stop();
             bool opened = _facade.OpenFlac(track.FilePath);
             if (!opened)
@@ -1535,18 +1561,7 @@ namespace HiResPlayer.Desktop
 
         private void BtnQuickBitPerfect_Click(object sender, RoutedEventArgs e)
         {
-            try
-            {
-                if (RadExclusive != null) RadExclusive.IsChecked = true;
-                _facade.SetMode(HP_PlaybackMode.Exclusive);
-                if (ChkEqBypass != null) ChkEqBypass.IsChecked = true;
-                _facade.SetEqBypass(true);
-                _facade.SetCenterProcessor(0, 0f);
-            }
-            catch (Exception ex)
-            {
-                App.Log($"BtnQuickBitPerfect_Click error: {ex}");
-            }
+            ActivateBitPerfectMode();
         }
 
         private void BtnQuickDspMode_Click(object sender, RoutedEventArgs e)
@@ -2238,21 +2253,52 @@ namespace HiResPlayer.Desktop
             PlayTrack(context[idx], switchToNowPlaying: false);
         }
 
+        private string? _lastAutoAdvancedTrackPath = null;
         private DateTime _lastAutoAdvanceUtc = DateTime.MinValue;
 
         private void AutoAdvanceTrack()
         {
             if (ChkSettingsAutoAdvance != null && ChkSettingsAutoAdvance.IsChecked == false) return;
-            if ((DateTime.UtcNow - _lastAutoAdvanceUtc).TotalMilliseconds < 800) return;
+            if (_currentTrack == null) return;
+
+            // Reconcile duplicate track-end callbacks and timer poll by track identity + time debounce
+            if (_lastAutoAdvancedTrackPath == _currentTrack.FilePath &&
+                (DateTime.UtcNow - _lastAutoAdvanceUtc).TotalSeconds < 2.0)
+            {
+                return;
+            }
+
+            _lastAutoAdvancedTrackPath = _currentTrack.FilePath;
             _lastAutoAdvanceUtc = DateTime.UtcNow;
 
-            if (_repeatMode == 2 && _currentTrack != null)
+            // Repeat One: replay current track
+            if (_repeatMode == 2)
             {
                 PlayTrack(_currentTrack, switchToNowPlaying: false);
                 return;
             }
 
-            BtnNext_Click(this, new RoutedEventArgs());
+            var context = (_activePlaybackContext != null && _activePlaybackContext.Count > 0)
+                ? _activePlaybackContext
+                : (_filteredTracks.Count > 0 ? (IReadOnlyList<TrackViewItem>)_filteredTracks : _libraryTracks);
+
+            if (context.Count == 0) return;
+
+            int idx = context.ToList().FindIndex(t => t.FilePath.Equals(_currentTrack.FilePath, StringComparison.OrdinalIgnoreCase));
+
+            // Repeat Off: stop cleanly at the end of the queue
+            if (_repeatMode == 0)
+            {
+                if (idx < 0 || idx >= context.Count - 1)
+                {
+                    BtnStop_Click(this, new RoutedEventArgs());
+                    return;
+                }
+            }
+
+            // Move to next track (Repeat All wraps at end; Repeat Off moves forward)
+            int nextIdx = (idx < 0) ? 0 : (idx + 1) % context.Count;
+            PlayTrack(context[nextIdx], switchToNowPlaying: false);
         }
 
         private void BtnNext_Click(object sender, RoutedEventArgs e)
@@ -3428,126 +3474,8 @@ namespace HiResPlayer.Desktop
         // ════════════════════════════════════════════════════════════════════
         // KEYBOARD SHORTCUTS
         // ════════════════════════════════════════════════════════════════════
-
-        private void MainWindow_KeyDown(object sender, KeyEventArgs e)
-        {
-            // Do not intercept if user is typing in search or text boxes
-            if ((TxtSearch != null && TxtSearch.IsFocused) ||
-                (TxtModalPlaylistName != null && TxtModalPlaylistName.IsFocused))
-            {
-                if (e.Key == Key.Escape)
-                {
-                    if (ModalPlaylistOverlay != null && ModalPlaylistOverlay.Visibility == Visibility.Visible)
-                    {
-                        ModalPlaylistOverlay.Visibility = Visibility.Collapsed;
-                        e.Handled = true;
-                    }
-                    else if (TxtSearch != null && TxtSearch.IsFocused)
-                    {
-                        Keyboard.ClearFocus();
-                        e.Handled = true;
-                    }
-                }
-                return;
-            }
-
-            switch (e.Key)
-            {
-                case Key.Space:
-                case Key.MediaPlayPause:
-                    BtnPlayPause_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.MediaStop:
-                    BtnStop_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.MediaNextTrack:
-                    BtnNext_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.MediaPreviousTrack:
-                    BtnPrev_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.Right when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
-                    BtnNext_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.Left when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
-                    BtnPrev_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.O when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
-                    BtnOpenFlac_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.F11:
-                    BtnWinMaximize_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.Escape:
-                    if (ModalPlaylistOverlay != null && ModalPlaylistOverlay.Visibility == Visibility.Visible)
-                    {
-                        ModalPlaylistOverlay.Visibility = Visibility.Collapsed;
-                        e.Handled = true;
-                    }
-                    else if (BorderQueueRail != null && BorderQueueRail.Visibility == Visibility.Visible)
-                    {
-                        BorderQueueRail.Visibility = Visibility.Collapsed;
-                        if (ColQueueRail != null) ColQueueRail.Width = new GridLength(0);
-                        e.Handled = true;
-                    }
-                    break;
-
-                case Key.M:
-                    BtnVolumeMute_Click(this, new RoutedEventArgs());
-                    e.Handled = true;
-                    break;
-
-                case Key.F when Keyboard.Modifiers == ModifierKeys.None:
-                    ToggleCurrentOrSelectedFavorite();
-                    e.Handled = true;
-                    break;
-
-                case Key.OemQuestion when Keyboard.Modifiers == ModifierKeys.None:
-                case Key.Divide when Keyboard.Modifiers == ModifierKeys.None:
-                    if (TxtSearch != null)
-                    {
-                        HideAllViews();
-                        ViewLibrary.Visibility = Visibility.Visible;
-                        SetActiveNav(NavSongs ?? NavLibrary);
-                        TxtSearch.Focus();
-                        TxtSearch.SelectAll();
-                        e.Handled = true;
-                    }
-                    break;
-
-                case Key.Up when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
-                    if (SldVolume != null)
-                    {
-                        SldVolume.Value = Math.Min(100, SldVolume.Value + 5);
-                        e.Handled = true;
-                    }
-                    break;
-
-                case Key.Down when (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control:
-                    if (SldVolume != null)
-                    {
-                        SldVolume.Value = Math.Max(0, SldVolume.Value - 5);
-                        e.Handled = true;
-                    }
-                    break;
-            }
-        }
+        // Note: Keyboard shortcuts are handled in MainWindow.Keyboard.cs via PreviewKeyDown
+        // ════════════════════════════════════════════════════════════════════
 
         private void ToggleCurrentOrSelectedFavorite()
         {

@@ -1299,6 +1299,64 @@
                                     </Grid>
                                 </StackPanel>
                             </Border>
+
+                            <!-- 7. KEYBOARD SHORTCUTS REFERENCE -->
+                            <Border Background="{StaticResource Studio.SurfaceElevated}" CornerRadius="12"
+                                    Padding="24,20" Margin="0,0,0,20" BorderBrush="{StaticResource Studio.Divider}" BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="7. Keyboard Shortcuts Reference" FontWeight="SemiBold" FontSize="15"
+                                               Foreground="{StaticResource Studio.TextPrimary}" Margin="0,0,0,14"/>
+
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="220"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="26"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Space / Ctrl+P:" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Play / Pause" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl+Right / Ctrl+Left:" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="Next Track / Previous Track" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl+Up / Ctrl+Down:" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="Master Device Volume Up / Down (±5%)" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Up / Down:" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="Volume Up / Down (outside lists and sliders)" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Left / Right (on seekbar):" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="4" Grid.Column="1" Text="Seek ±5 seconds" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="5" Grid.Column="0" Text="PgUp / PgDn (on seekbar):" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="Seek ±30 seconds" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Home / End (on seekbar):" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="6" Grid.Column="1" Text="Seek to Track Start / End" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="7" Grid.Column="0" Text="M / F:" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="7" Grid.Column="1" Text="Toggle Mute / Toggle Favorite" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="8" Grid.Column="0" Text="/ (Slash):" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="8" Grid.Column="1" Text="Focus Library Search Box" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+
+                                        <TextBlock Grid.Row="9" Grid.Column="0" Text="Esc:" Foreground="{StaticResource Studio.Gold}" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Row="9" Grid.Column="1" Text="Dismiss Modals &amp; Drawers / Clear Search" Foreground="{StaticResource Studio.TextSecondary}" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>
@@ -1548,21 +1606,26 @@
                             Click="BtnDockNowPlaying_Click" Style="{StaticResource Studio.ButtonBase}"
                             Padding="8,5" FontSize="11" Margin="0,0,10,0"/>
 
-                    <!-- Master Volume Controls -->
-                    <Button x:Name="BtnVolumeMute" Content="VOL" AutomationProperties.Name="Toggle Volume Mute" Click="BtnVolumeMute_Click"
+                    <!-- Master Output Device Volume Controls -->
+                    <Button x:Name="BtnVolumeMute" Content="VOL" AutomationProperties.Name="Toggle Output Device Master Volume Mute"
+                            ToolTip="Output Device Master Volume (Mute/Unmute)" Click="BtnVolumeMute_Click"
                             Background="Transparent" BorderThickness="0" Foreground="{StaticResource Studio.TextSecondary}"
                             FontSize="10" FontWeight="SemiBold" Padding="3" Cursor="Hand" Margin="0,0,3,0"/>
-                    <Slider x:Name="SldVolume" Width="70" AutomationProperties.Name="Volume Slider" Minimum="0" Maximum="100" Value="100"
+                    <Slider x:Name="SldVolume" Width="70" AutomationProperties.Name="Output Device Master Volume Slider"
+                            ToolTip="Output Device Master Volume. In WASAPI Exclusive bit-perfect mode, hardware DAC volume controls output gain directly."
+                            Minimum="0" Maximum="100" Value="100"
                             IsMoveToPointEnabled="True" VerticalAlignment="Center"
                             ValueChanged="SldVolume_ValueChanged"/>
                     <TextBlock x:Name="TxtVolumeVal" Text="100%" Width="32" Margin="4,0,0,0"
+                               ToolTip="Output Device Master Volume Level"
                                Foreground="{StaticResource Studio.TextMuted}" FontSize="10" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- ══════════════════════════ MODAL: PLAYLIST CREATE / RENAME ══════════════════════════ -->
-        <Grid x:Name="ModalPlaylistOverlay" Grid.RowSpan="3" Visibility="Collapsed" Background="#C807090E" Panel.ZIndex="100">
+        <Grid x:Name="ModalPlaylistOverlay" Grid.RowSpan="3" Visibility="Collapsed" Background="#C807090E" Panel.ZIndex="100"
+              KeyboardNavigation.TabNavigation="Cycle">
             <Border Background="{StaticResource Studio.SurfaceElevated}" BorderBrush="{StaticResource Studio.Gold}"
                     BorderThickness="1" CornerRadius="14" Padding="28,24" Width="440" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <StackPanel>

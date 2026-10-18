@@ -4,6 +4,7 @@
 #include <cassert>
 #include "../src/HiResAudioEngine/include/hires_audio_api.h"
 #include "../src/HiResAudioEngine/include/hires_dsp_api.h"
+#include "test_fixtures.h"
 
 int main() {
     std::cout << "======================================================" << std::endl;
@@ -21,7 +22,8 @@ int main() {
     std::cout << "[2/10] Engine instance created successfully." << std::endl;
 
     // 3. Open FLAC track
-    const wchar_t* path = L"d:\\AudioPlayer\\HiResPlayer\\tests\\Fixtures\\test_16bit_44k.flac";
+    std::wstring path_str = get_test_fixture_path(L"test_16bit_44k.flac");
+    const wchar_t* path = path_str.c_str();
     HP_Result res = hp_open_flac(h, path);
     std::cout << "[3/10] Open FLAC: result = " << res << std::endl;
     assert(res == HP_OK);
