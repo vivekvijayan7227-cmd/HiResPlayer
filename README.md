@@ -146,7 +146,7 @@ HiResPlayer v1.0.1 incorporates extensive native engine hardening and architectu
 
 | Shortcut | Action | Scope / Context |
 |:---|:---|:---|
-| <kbd>Space</kbd> | Play / Pause | Focused anywhere except active text/buttons |
+| <kbd>Space</kbd> / <kbd>Ctrl</kbd> + <kbd>Space</kbd> | Play / Pause | Anywhere across all views & track lists (except when typing in text fields) |
 | <kbd>Ctrl</kbd> + <kbd>P</kbd> | Play / Pause (Universal) | Global |
 | <kbd>Ctrl</kbd> + <kbd>→</kbd> / <kbd>MediaNextTrack</kbd> | Next Track | Global |
 | <kbd>Ctrl</kbd> + <kbd>←</kbd> / <kbd>MediaPreviousTrack</kbd> | Previous Track | Global |

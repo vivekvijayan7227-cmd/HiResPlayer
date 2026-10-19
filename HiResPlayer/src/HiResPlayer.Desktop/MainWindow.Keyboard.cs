@@ -31,7 +31,7 @@ namespace HiResPlayer.Desktop
 
             if (BtnPlayPause != null)
             {
-                BtnPlayPause.ToolTip = "Play / Pause (Space on background, Ctrl+P)";
+                BtnPlayPause.ToolTip = "Play / Pause (Space, Ctrl+P)";
             }
             if (BtnNext != null)
             {
@@ -179,6 +179,7 @@ namespace HiResPlayer.Desktop
                         if (!e.IsRepeat) BtnOpenFlac_Click(this, new RoutedEventArgs());
                         e.Handled = true;
                         return;
+                    case Key.Space:
                     case Key.P:
                         if (!e.IsRepeat) BtnPlayPause_Click(this, new RoutedEventArgs());
                         e.Handled = true;
@@ -191,13 +192,13 @@ namespace HiResPlayer.Desktop
             // and the OS unless specifically defined by the application.
             if (mods != ModifierKeys.None) return;
 
-            // Space activates focused buttons / list selections by standard WPF convention.
-            bool focusOwnsSpace = FindAncestorOrSelf<ButtonBase>(focused) != null
-                               || FindAncestorOrSelf<Selector>(focused) != null;
+            // CheckBox and RadioButton use Space for native toggle when explicitly focused
+            bool isToggleControl = FindAncestorOrSelf<CheckBox>(focused) != null
+                                || FindAncestorOrSelf<RadioButton>(focused) != null;
 
             switch (key)
             {
-                case Key.Space when !focusOwnsSpace:
+                case Key.Space when !isToggleControl:
                     if (!e.IsRepeat) BtnPlayPause_Click(this, new RoutedEventArgs());
                     e.Handled = true;
                     return;
