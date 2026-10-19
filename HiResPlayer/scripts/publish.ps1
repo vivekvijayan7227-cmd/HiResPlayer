@@ -120,6 +120,14 @@ Architecture:
 "@
 Set-Content -Path (Join-Path $OutputDir "README.txt") -Value $DocContent -Encoding UTF8
 
+# 7. Mirror to Git root dist directory if present
+$GitRootDir = Join-Path $RepoRoot "..\dist\HiResPlayer-win-x64"
+if ((Test-Path (Join-Path $RepoRoot "..\dist")) -and ((Resolve-Path $GitRootDir -ErrorAction SilentlyContinue).Path -ne (Resolve-Path $OutputDir).Path)) {
+    New-Item -ItemType Directory -Path $GitRootDir -Force | Out-Null
+    Copy-Item -Path "$OutputDir\*" -Destination $GitRootDir -Recurse -Force
+    Write-Host "  -> Mirrored payload to $GitRootDir" -ForegroundColor Gray
+}
+
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host " Packaging completed successfully!" -ForegroundColor Green
 Write-Host " Destination: $OutputDir" -ForegroundColor Green
